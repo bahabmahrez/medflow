@@ -24,8 +24,8 @@ DRUGS = [
     ("metformin",       "Glucophage",   "Glucophage","Glucophage",  "A10BA02", "Antidiabetic",       "tablet", "500-2000mg/day", "Start 500mg, titrate slowly", "Contraindicated if eGFR<30", "Contraindicated in hepatic failure"),
     ("glibenclamide",   "Daonil",       "Daonil",    "Daonil",      "A10BB01", "Antidiabetic",       "tablet", "2.5-15mg/day", "Start 2.5mg, risk of hypoglycemia", "Avoid if CrCl<30", "Avoid in hepatic failure"),
     ("insulin glargine","Lantus",       "Lantus",    "Lantus",      "A10AE04", "Antidiabetic",       "injection", "individualized", "Start low, titrate", "Monitor glucose closely", "Monitor glucose closely"),
-    ("enalapril",       "Renitec",      None,        "Renitec",     "C09AA02", "ACE inhibitor",      "tablet", "5-40mg/day", "Start 2.5mg", "Start 2.5mg if CrCl<30", "Caution"),
-    ("ramipril",        "Triatec",      "Triatec",   "Triatec",     "C09AA05", "ACE inhibitor",      "tablet", "2.5-10mg/day", "Start 1.25mg", "Start 1.25mg if CrCl<30", "Caution"),
+    ("enalapril",       "Renitec",       None,        "Renitec",     "C09AA02", "ACE inhibitor",      "tablet", "5-40mg/day", "Start 2.5mg", "Start 2.5mg if CrCl<30", "Caution"),
+    ("ramipril",        "Triatec",       "Triatec",   "Triatec",     "C09AA05", "ACE inhibitor",      "tablet", "2.5-10mg/day", "Start 1.25mg", "Start 1.25mg if CrCl<30", "Caution"),
     ("amlodipine",      "Amlor",        "Amlor",     "Amlor",       "C08CA01", "Calcium channel blocker","tablet","5-10mg/day","5mg/day","No dose adjustment","Start 5mg, titrate slowly"),
     ("furosemide",      "Lasilix",      "Lasilix",   "Lasilix",     "C03CA01", "Loop diuretic",      "tablet", "20-80mg/day", "Start low", "Higher doses may be needed", "Caution"),
     ("spironolactone",  "Aldactone",    "Aldactone", "Aldactone",   "C03DA01", "K-sparing diuretic", "tablet", "25-100mg/day", "Start 25mg", "Avoid if CrCl<30", "Caution in severe hepatic failure — monitor electrolytes"),
@@ -49,6 +49,7 @@ DRUGS = [
     ("tramadol",        "Topalgic",     "Topalgic",  "Topalgic",    "N02AX02", "Opioid analgesic",   "tablet", "50-100mg q4-6h, max 400mg/day", "Max 300mg/day", "Extend dosing interval if CrCl<30", "Reduce dose in hepatic failure"),
 ]
 
+
 for (inn, brand, brand_tn, brand_fr, atc, category, form,
      dose_adult, dose_elderly, dose_renal, dose_hepatic) in DRUGS:
     cur.execute("SELECT id FROM molecules WHERE inn = %s", (inn,))
@@ -64,34 +65,96 @@ for (inn, brand, brand_tn, brand_fr, atc, category, form,
     """, (mol[0], brand, brand_tn, brand_fr, atc, category, form,
           dose_adult, dose_elderly, dose_renal, dose_hepatic))
 
-# ── contraindications ─────────────────────────────────────────────────────────
-CONTRAINDICATIONS = [
-    ("metformin",       "5A11",  "Chronic kidney disease stage 4-5", "Risk of lactic acidosis — do not use if eGFR<30 or creatinine >135μmol/L (men) / >110μmol/L (women)", "ANSM/OpenFDA"),
-    ("warfarin",        "JA00",  "Pregnancy",                        "Teratogenic — causes warfarin embryopathy and fetal hemorrhage", "OpenFDA"),
-    ("warfarin",        "DB94",  "Active bleeding",                  "Anticoagulation worsens active hemorrhage", "OpenFDA"),
-    ("spironolactone",  "5C77",  "Hyperkalemia",                     "Potassium-sparing effect worsens hyperkalemia", "OpenFDA"),
-    ("valproate",       "DB93",  "Hepatic failure",                  "Hepatotoxic — contraindicated in severe hepatic impairment", "OpenFDA"),
-    ("atorvastatin",    "DB93",  "Active hepatic disease",           "Statins are hepatotoxic in active liver disease", "OpenFDA"),
-    ("simvastatin",     "DB93",  "Active hepatic disease",           "Statins are hepatotoxic in active liver disease", "OpenFDA"),
-    ("ibuprofen",       "5A11",  "Chronic kidney disease stage 4-5", "NSAIDs reduce renal perfusion — risk of acute kidney injury", "OpenFDA"),
-    ("diclofenac",      "5A11",  "Chronic kidney disease stage 4-5", "NSAIDs reduce renal perfusion — risk of acute kidney injury", "OpenFDA"),
-    ("naproxen",        "5A11",  "Chronic kidney disease stage 4-5", "NSAIDs reduce renal perfusion — risk of acute kidney injury", "OpenFDA"),
-    ("glibenclamide",   "5A11",  "Chronic kidney disease stage 4-5", "Risk of prolonged hypoglycemia — renally cleared active metabolites", "OpenFDA"),
+# ── disease concepts + contraindications ─────────────────────────────────────
+# New schema uses disease_concepts + molecule-level contraindications.
+
+DISEASE_CONCEPTS = [
+    # icd11_code, snomed_code, condition_name, description
+    ("N18", "709044004", "Renal impairment", "Reduced kidney function (e.g., CKD / impaired renal clearance)."),
+    ("K76.9", "235856003", "Hepatic impairment", "Reduced liver function / hepatic impairment."),
+    ("Z34", "77386006", "Pregnancy", "Pregnancy."),
+    ("K27", "13200003", "Peptic ulcer disease", "Peptic ulcer disease."),
+    ("Z88.0", "372687004", "Hypersensitivity to penicillin", "Hypersensitivity to penicillin."),
+    ("8A60", "84757009", "Epilepsy", "Epilepsy."),
+    ("BD10", "84114007", "Heart failure", "Heart failure."),
 ]
 
-for (inn, icd11, condition, reason, source) in CONTRAINDICATIONS:
+for icd11, snomed, condition_name, description in DISEASE_CONCEPTS:
     cur.execute("""
-        SELECT d.id FROM drugs d
+        INSERT INTO disease_concepts (icd11_code, snomed_code, condition_name, description)
+        VALUES (%s,%s,%s,%s)
+        ON CONFLICT (icd11_code) DO UPDATE SET
+            condition_name = EXCLUDED.condition_name
+    """, (icd11, snomed, condition_name, description))
+
+# (inn, icd11_code, reason, source, severity)
+CONTRAINDICATIONS = [
+    # Metformin / renal impairment
+    ("metformin",       "N18", "Risk of lactic acidosis — avoid when renal impairment is severe.", "ANSM/OpenFDA", "contraindicated"),
+
+    # Warfarin / pregnancy
+    ("warfarin",        "Z34", "Teratogenic — causes fetal hemorrhage / embryopathy.", "OpenFDA", "contraindicated"),
+
+    # Warfarin / active bleeding (not in the required seed list; keep concept insertion best-effort)
+    ("warfarin",        "DB94", "Anticoagulation worsens active bleeding.", "OpenFDA", "contraindicated"),
+
+    # Spironolactone / hyperkalemia (not in required seed list)
+    ("spironolactone",  "5C77", "Potassium-sparing effect can worsen hyperkalemia.", "OpenFDA", "monitoring"),
+
+    # Valproate / hepatic impairment
+    ("valproate",       "K76.9", "Hepatotoxicity — avoid in severe hepatic impairment.", "OpenFDA", "contraindicated"),
+
+    # Statins / active hepatic disease -> map to hepatic impairment concept
+    ("atorvastatin",    "K76.9", "Hepatic risk — avoid in active hepatic impairment.", "OpenFDA", "contraindicated"),
+    ("simvastatin",     "K76.9", "Hepatic risk — avoid in active hepatic impairment.", "OpenFDA", "contraindicated"),
+
+    # NSAIDs / renal impairment (dosing considerations)
+    ("ibuprofen",       "N18", "NSAIDs can reduce renal perfusion; increased AKI risk.", "OpenFDA", "dose_adjustment"),
+    ("diclofenac",      "N18", "NSAIDs can reduce renal perfusion; increased AKI risk.", "OpenFDA", "dose_adjustment"),
+    ("naproxen",        "N18", "NSAIDs can reduce renal perfusion; increased AKI risk.", "OpenFDA", "dose_adjustment"),
+    ("glibenclamide",   "N18", "Prolonged hypoglycemia risk with reduced renal clearance.", "OpenFDA", "dose_adjustment"),
+]
+
+for (inn, icd11, reason, source, severity) in CONTRAINDICATIONS:
+    # Ensure a disease concept exists (seed list has the required ones; others are inserted best-effort)
+    cur.execute("""
+        INSERT INTO disease_concepts (icd11_code, snomed_code, condition_name, description)
+        VALUES (%s, NULL, %s, NULL)
+        ON CONFLICT (icd11_code) DO UPDATE SET
+            condition_name = EXCLUDED.condition_name
+    """, (icd11, reason))
+
+    # Look up molecule_id by joining drugs → molecules on molecules.inn
+    cur.execute("""
+        SELECT m.id
+        FROM drugs d
         JOIN molecules m ON m.id = d.molecule_id
-        WHERE m.inn = %s LIMIT 1
+        WHERE m.inn = %s
+        LIMIT 1
     """, (inn,))
-    drug = cur.fetchone()
-    if not drug:
+    mol = cur.fetchone()
+    if not mol:
         continue
+    molecule_id = mol[0]
+
+    # Look up disease_concept_id by icd11_code
     cur.execute("""
-        INSERT INTO contraindications (drug_id, condition_icd11, condition_name, reason, source)
-        VALUES (%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING
-    """, (drug[0], icd11, condition, reason, source))
+        SELECT id
+        FROM disease_concepts
+        WHERE icd11_code = %s
+        LIMIT 1
+    """, (icd11,))
+    dc = cur.fetchone()
+    if not dc:
+        continue
+    disease_concept_id = dc[0]
+
+    cur.execute("""
+        INSERT INTO contraindications (molecule_id, disease_concept_id, reason, severity, source)
+        VALUES (%s,%s,%s,%s,%s)
+        ON CONFLICT (molecule_id, disease_concept_id) DO NOTHING
+    """, (molecule_id, disease_concept_id, reason, severity, source))
+
 
 # allergy groups
 allergy_groups_path = os.path.join(CLEAN_DIR, "allergy_groups_clean.csv")
