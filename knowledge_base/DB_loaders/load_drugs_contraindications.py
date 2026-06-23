@@ -1,7 +1,16 @@
 import csv
 import os
 
-import psycopg2
+try:
+    import psycopg2
+except ImportError:
+    try:
+        # some environments install the binary package under a different name
+        import psycopg2_binary as psycopg2  # type: ignore
+    except ImportError:
+        raise ImportError(
+            "psycopg2 is required to run this script. Install with: pip install psycopg2-binary"
+        )
 
 conn = psycopg2.connect(
     dbname=os.getenv("POSTGRES_DB", "medflow"),
