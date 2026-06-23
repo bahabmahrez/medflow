@@ -9,7 +9,8 @@ conn = psycopg2.connect(
 cur = conn.cursor()
 
 loaded = 0
-csv_path = os.path.join(os.path.dirname(__file__), "../sources/chembl_drug_data.csv")
+# Data file lives under knowledge_base/sources/dataset/...
+csv_path = os.path.join(os.path.dirname(__file__), "../sources/dataset/chembl_drug_data.csv")
 
 with open(csv_path, newline="") as f:
     for row in csv.DictReader(f):

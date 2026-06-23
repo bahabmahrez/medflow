@@ -19,7 +19,29 @@ DRUGS = [
     "spironolactone","digoxin","atorvastatin","simvastatin","ibuprofen",
     "diclofenac","naproxen","prednisolone","amoxicillin","ciprofloxacin",
     "metronidazole","clarithromycin","fluconazole","carbamazepine","valproate",
-    "fluoxetine","sertraline","omeprazole","tramadol"
+    "fluoxetine","sertraline","omeprazole","tramadol",
+
+    # Additional INNs (to reach required loader coverage)
+    "lithium",
+    "haloperidol",
+    "risperidone",
+    "methotrexate",
+    "azathioprine",
+    "tacrolimus",
+    "cyclosporine",
+    "rifampicin",
+    "isoniazid",
+    "phenobarbital",
+    "levodopa",
+    "amiodarone",
+    "verapamil",
+    "diltiazem",
+    "losartan",
+    "allopurinol",
+    "colchicine",
+    "levothyroxine",
+    "ethinylestradiol",
+    "sildenafil",
 ]
 
 def get_rxnorm_cui(name):
@@ -52,7 +74,11 @@ for drug in DRUGS:
         chembl_id = get_chembl_id(drug)
         time.sleep(0.2)
 
-        # upsert molecule
+        # Safety against schema length mismatches.
+        # NOTE: molecules.chembl_id is VARCHAR(20) in the current schema; some ChEMBL IDs can be longer.
+        chembl_id_safe = chembl_id[:50] if chembl_id else None
+
+        # Upsert molecule in its own independent transaction.
         cur.execute("""
             INSERT INTO molecules (inn, rxnorm_cui, chembl_id)
             VALUES (%s, %s, %s)
@@ -60,7 +86,7 @@ for drug in DRUGS:
                 rxnorm_cui = EXCLUDED.rxnorm_cui,
                 chembl_id  = EXCLUDED.chembl_id
             RETURNING id
-        """, (drug, rxnorm_cui, chembl_id))
+        """, (drug, rxnorm_cui, chembl_id_safe))
         mol_id = cur.fetchone()[0]
 
         # load CYP relationships
@@ -77,13 +103,14 @@ for drug in DRUGS:
                     ON CONFLICT DO NOTHING
                 """, (mol_id, enzyme, "metabolized_by", None))
 
+        conn.commit()
         loaded += 1
         print(f"  OK — RxNorm: {rxnorm_cui}, ChEMBL: {chembl_id}")
     except Exception as e:
+        conn.rollback()
         print(f"  SKIP {drug}: {e}")
         skipped += 1
 
-conn.commit()
 cur.close()
 conn.close()
 print(f"\nDone. Loaded: {loaded}, Skipped: {skipped}")

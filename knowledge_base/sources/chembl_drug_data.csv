@@ -1,0 +1,31 @@
+inn_name,chembl_id,molecular_weight,cyp_relationships,cyp_count,status
+warfarin,,,,0,NOT FOUND
+heparin,,,,0,NOT FOUND
+aspirin,,,,0,NOT FOUND
+clopidogrel,,,,0,NOT FOUND
+metformin,,,,0,NOT FOUND
+glibenclamide,,,,0,NOT FOUND
+insulin glargine,,,,0,NOT FOUND
+enalapril,,,,0,NOT FOUND
+ramipril,,,,0,NOT FOUND
+amlodipine,,,,0,NOT FOUND
+furosemide,,,,0,NOT FOUND
+spironolactone,,,,0,NOT FOUND
+digoxin,,,,0,NOT FOUND
+atorvastatin,,,,0,NOT FOUND
+simvastatin,,,,0,NOT FOUND
+ibuprofen,,,,0,NOT FOUND
+diclofenac,,,,0,NOT FOUND
+naproxen,,,,0,NOT FOUND
+prednisolone,,,,0,NOT FOUND
+amoxicillin,,,,0,NOT FOUND
+ciprofloxacin,,,,0,NOT FOUND
+metronidazole,,,,0,NOT FOUND
+clarithromycin,,,,0,NOT FOUND
+fluconazole,,,,0,NOT FOUND
+carbamazepine,,,,0,NOT FOUND
+valproate,,,,0,NOT FOUND
+fluoxetine,,,,0,NOT FOUND
+sertraline,,,,0,NOT FOUND
+omeprazole,,,,0,NOT FOUND
+tramadol,,,,0,NOT FOUND

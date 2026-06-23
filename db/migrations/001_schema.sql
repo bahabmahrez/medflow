@@ -20,7 +20,7 @@ CREATE TABLE molecules (
     inn                 VARCHAR(255) UNIQUE NOT NULL,   -- International Nonproprietary Name
     rxnorm_cui          VARCHAR(20),
     drugbank_id         VARCHAR(20),
-    chembl_id           VARCHAR(20),
+    chembl_id           VARCHAR(50),
     molecular_class     VARCHAR(100),
     half_life_hours     NUMERIC,
     elimination_route   VARCHAR(50)
