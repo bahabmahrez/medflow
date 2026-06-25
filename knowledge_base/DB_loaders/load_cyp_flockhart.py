@@ -95,6 +95,15 @@ SUPPLEMENTS = [
     ("metronidazole",    "CYP2C9",  "INHIBITOR", "moderate"),
 ]
 
+# ── Strength overrides: Flockhart rating differs from FDA/ANSM clinical guidance ──
+# Applied after the main load to correct known conservative underclassifications.
+STRENGTH_OVERRIDES = [
+    # Fluconazole CYP2C9: Flockhart = moderate; FDA Drug Interaction Guidance = strong.
+    # ANSM Thesaurus confirms strong — the warfarin+fluconazole contre_indique rating
+    # is based precisely on this strong inhibition. Moderate would understate the risk.
+    ("fluconazole", "CYP2C9", "INHIBITOR", "strong"),
+]
+
 for (inn, enzyme, relationship, strength) in SUPPLEMENTS:
     cur.execute("SELECT id FROM molecules WHERE inn = %s", (inn,))
     mol = cur.fetchone()
@@ -113,6 +122,18 @@ for (inn, enzyme, relationship, strength) in SUPPLEMENTS:
     except Exception as e:
         cur.execute("ROLLBACK TO SAVEPOINT sup_sp")
         print(f"  SKIP supplement {inn} {enzyme} {relationship}: {e}")
+
+for (inn, enzyme, relationship, strength) in STRENGTH_OVERRIDES:
+    cur.execute("SELECT id FROM molecules WHERE inn = %s", (inn,))
+    mol = cur.fetchone()
+    if not mol:
+        continue
+    cur.execute("""
+        UPDATE cyp_relationships SET strength = %s
+        WHERE molecule_id = %s AND enzyme = %s AND relationship = %s
+    """, (strength, mol[0], enzyme, relationship))
+    if cur.rowcount:
+        print(f"  OVERRIDE  {inn} {enzyme} {relationship} -> {strength}")
 
 conn.commit()
 
