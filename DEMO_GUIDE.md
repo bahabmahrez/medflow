@@ -105,7 +105,7 @@ tables = [
     ('molecules',                  51),
     ('drugs',                     183),
     ('drug_interactions',         281),
-    ('cyp_relationships',         109),
+    ('cyp_relationships',         127),
     ('contraindications',          11),
     ('adverse_effects',          1607),
     ('molecular_targets',          53),

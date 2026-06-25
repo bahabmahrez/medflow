@@ -10,6 +10,10 @@ for CYP substrate/inhibitor/inducer classifications with strength grading.
 Name normalization:
   Some Flockhart drug names differ from our INN standard — mapped below.
   Drugs not in the CSV (non-CYP-metabolized) are silently skipped.
+
+Note: this loader uses upserts (ON CONFLICT DO UPDATE) throughout — it is safe
+to re-run at any time and will never wipe ChEMBL CYP rows added by
+load_rxnorm_chembl.py. Run order within the pipeline does not matter.
 """
 
 import csv
@@ -29,22 +33,18 @@ CSV_PATH = os.path.join(BASE_DIR, "../sources/dataset/flockhart_cyp_table.csv")
 
 # Flockhart name → canonical INN stored in molecules table
 FLOCKHART_TO_INN = {
-    "s-warfarin":           "warfarin",
-    "r-warfarin":           "warfarin",
-    "rifampin":             "rifampicin",
-    "valproic acid":        "valproate",
+    "s-warfarin":              "warfarin",
+    "r-warfarin":              "warfarin",
+    "rifampin":                "rifampicin",
+    "valproic acid":           "valproate",
     "glyburide/glibenclamide": "glibenclamide",
-    "gleevec":              "imatinib",   # brand name duplicate of imatinib
+    "gleevec":                 "imatinib",   # brand name duplicate of imatinib
 }
 
 
 def resolve_inn(flockhart_name: str) -> str:
     return FLOCKHART_TO_INN.get(flockhart_name, flockhart_name)
 
-
-# Clear existing CYP data so we start clean from the Flockhart source
-cur.execute("DELETE FROM cyp_relationships")
-print("Cleared existing cyp_relationships rows.")
 
 loaded, skipped_no_mol, skipped_other = 0, 0, 0
 
@@ -104,7 +104,7 @@ STRENGTH_OVERRIDES = [
     ("fluconazole", "CYP2C9", "INHIBITOR", "strong"),
 ]
 
-for (inn, enzyme, relationship, strength) in SUPPLEMENTS:
+for inn, enzyme, relationship, strength in SUPPLEMENTS:
     cur.execute("SELECT id FROM molecules WHERE inn = %s", (inn,))
     mol = cur.fetchone()
     if not mol:
@@ -123,7 +123,7 @@ for (inn, enzyme, relationship, strength) in SUPPLEMENTS:
         cur.execute("ROLLBACK TO SAVEPOINT sup_sp")
         print(f"  SKIP supplement {inn} {enzyme} {relationship}: {e}")
 
-for (inn, enzyme, relationship, strength) in STRENGTH_OVERRIDES:
+for inn, enzyme, relationship, strength in STRENGTH_OVERRIDES:
     cur.execute("SELECT id FROM molecules WHERE inn = %s", (inn,))
     mol = cur.fetchone()
     if not mol:
@@ -141,12 +141,12 @@ cur.execute("SELECT COUNT(*) FROM cyp_relationships")
 total = cur.fetchone()[0]
 
 cur.execute("""
-    SELECT r.relationship, COUNT(*)
-    FROM cyp_relationships r
-    GROUP BY r.relationship
-    ORDER BY r.relationship
+    SELECT relationship, COUNT(*)
+    FROM cyp_relationships
+    GROUP BY relationship
+    ORDER BY relationship
 """)
-by_rel = cur.fetchall()
+by_rel = dict(cur.fetchall())
 
 cur.close()
 conn.close()
@@ -156,4 +156,4 @@ print(f"  Loaded:                {loaded}")
 print(f"  Skipped (no molecule): {skipped_no_mol}")
 print(f"  Skipped (other):       {skipped_other}")
 print(f"  Total in DB:           {total}")
-print(f"  By relationship:       {dict(by_rel)}")
+print(f"  By relationship:       {by_rel}")
