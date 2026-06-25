@@ -85,7 +85,7 @@ python knowledge_base/DB_loaders/load_molecular_targets.py
 python knowledge_base/DB_loaders/load_treats.py
 
 # 11. Load synthetic patients (8 traps + 22 regular)
-python patients/load_patients.py
+python patients/synthetic/load_patients.py
 ```
 
 ---
