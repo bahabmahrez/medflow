@@ -54,7 +54,7 @@ docker ps
 ### Step 2 — Load all data (run in this exact order)
 
 ```bash
-# 1. Load the 50 molecules (RxNorm CUIs, ChEMBL IDs)
+# 1. Load the 51 molecules (RxNorm CUIs, ChEMBL IDs)
 python knowledge_base/DB_loaders/load_rxnorm_chembl.py
 
 # 2. Load brand names, contraindications, allergy groups
@@ -75,16 +75,19 @@ python knowledge_base/DB_loaders/load_cyp_flockhart.py
 # 7. Load drug classes and class-level interaction rules
 python knowledge_base/DB_loaders/load_drug_classes.py
 
-# 8. Load adverse effects (OpenFDA pharmacovigilance data)
+# 8. Load curated high-risk overrides (fills critical gaps not covered by source files)
+python knowledge_base/DB_loaders/load_curated_overrides.py
+
+# 9. Load adverse effects (OpenFDA pharmacovigilance data)
 python knowledge_base/DB_loaders/load_adverse_effects.py
 
-# 9. Load molecular targets (ChEMBL + hardcoded critical targets)
+# 10. Load molecular targets (ChEMBL + hardcoded critical targets)
 python knowledge_base/DB_loaders/load_molecular_targets.py
 
-# 10. Load drug indications (what each drug treats)
+# 11. Load drug indications (what each drug treats)
 python knowledge_base/DB_loaders/load_treats.py
 
-# 11. Load synthetic patients (8 traps + 22 regular)
+# 12. Load synthetic patients (8 traps + 22 regular)
 python patients/synthetic/load_patients.py
 ```
 
@@ -99,18 +102,18 @@ import psycopg2
 conn = psycopg2.connect(dbname='medflow', user='medflow', password='medflow', host='localhost')
 cur = conn.cursor()
 tables = [
-    ('molecules',                  50),
-    ('drugs',                      30),
-    ('drug_interactions',         100),
-    ('cyp_relationships',           1),
-    ('contraindications',          15),
-    ('adverse_effects',           100),
-    ('molecular_targets',          20),
-    ('treats',                      1),
-    ('drug_classes',                1),
-    ('class_interactions',          1),
-    ('drug_class_members',          1),
-    ('molecule_molecular_targets',  1),
+    ('molecules',                  51),
+    ('drugs',                     183),
+    ('drug_interactions',         281),
+    ('cyp_relationships',         109),
+    ('contraindications',          11),
+    ('adverse_effects',          1607),
+    ('molecular_targets',          53),
+    ('treats',                     84),
+    ('drug_classes',               40),
+    ('class_interactions',         88),
+    ('drug_class_members',         53),
+    ('molecule_molecular_targets', 67),
     ('patients',                   30),
 ]
 print('Table                          Count   Target   Status')
@@ -187,13 +190,14 @@ cur.close(); conn.close()
 
 ### Part 3 — Run the trap verifications (5 minutes)
 
-This is the core demo. Run all 8 traps live:
+This is the core demo. Run all 8 traps live.
 
-```bash
-for %f in (evaluation\trap_verifications\trap*.py) do python "%f"
+**PowerShell:**
+```powershell
+Get-ChildItem evaluation\trap_verifications\trap*.py | ForEach-Object { python $_.FullName }
 ```
 
-On Linux/Mac:
+**Linux/Mac:**
 ```bash
 for f in evaluation/trap_verifications/trap*.py; do python "$f"; done
 ```
@@ -221,11 +225,12 @@ python evaluation/trap_verifications/additional_high_risk_pairs.py
 
 ### Part 4 — Run the stress tests (3 minutes)
 
-```bash
-for %f in (evaluation\stress_tests\stress*.py) do python "%f"
+**PowerShell:**
+```powershell
+Get-ChildItem evaluation\stress_tests\stress*.py | ForEach-Object { python $_.FullName }
 ```
 
-On Linux/Mac:
+**Linux/Mac:**
 ```bash
 for f in evaluation/stress_tests/stress*.py; do python "$f"; done
 ```
@@ -260,13 +265,15 @@ Open `/docs/severity_disagreements.md`.
 
 | What | Count |
 |---|---|
-| Drugs in the system | 51 molecules, 31 brand entries |
-| Interaction pairs | 304 (17 ANSM hand-curated + 287 FDA-sourced) |
-| CYP pathway entries | 82 (from Flockhart Indiana University table) |
-| Contraindications | 16 (disease-drug restrictions) |
-| Adverse effects | 574 (17 life-threatening, 42 severe) |
-| Molecular targets | 58 targets, 74 molecule-target links |
+| Molecules in the system | 51 |
+| Drug entries (brands + dosage forms) | 183 |
+| Interaction pairs | 281 (17 ANSM hand-curated + 261 FDA-sourced + 3 curated overrides) |
+| CYP pathway entries | 109 (from Flockhart Indiana University table) |
+| Contraindications | 11 (disease-drug restrictions) |
+| Adverse effects | 1,607 (life-threatening + severe + moderate) |
+| Molecular targets | 53 targets, 67 molecule-target links |
 | Drug indications | 84 (what each drug is for) |
 | Drug classes | 40 classes, 88 class-level interaction rules |
+| Drug class members | 53 molecule-to-class assignments |
 | Synthetic patients | 30 (8 trap scenarios + 22 regular) |
 | Severity disagreements documented | 17 |
