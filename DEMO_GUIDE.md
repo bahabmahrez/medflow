@@ -173,7 +173,7 @@ import psycopg2
 conn = psycopg2.connect(dbname='medflow', user='medflow', password='medflow', host='localhost')
 cur = conn.cursor()
 cur.execute('''
-    SELECT m.inn, ae.effect_name
+    SELECT m.inn, ae.adverse_effect_name
     FROM adverse_effects ae JOIN molecules m ON m.id=ae.molecule_id
     WHERE ae.severity = \'life_threatening\' ORDER BY m.inn
 ''')
