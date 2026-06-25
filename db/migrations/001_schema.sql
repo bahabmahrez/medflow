@@ -337,3 +337,4 @@ CREATE TABLE refill_records (
     expected_refill_date DATE,
     actual_refill_date   DATE
 );
+

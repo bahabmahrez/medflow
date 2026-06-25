@@ -124,7 +124,6 @@ def extract_all_epc_drugs(output_filename="all_epc_allergy_groups.csv"):
             time.sleep(0.3)  # polite rate limiting — ~3 req/sec
 
     # ── Summary ───────────────────────────────────────────────────────────────
-    print(f"\n{'─'*60}")
     print(f" Done!")
     print(f"   EPC classes processed : {len(epc_classes)}")
     print(f"   Classes with drugs    : {classes_with_drugs}")
