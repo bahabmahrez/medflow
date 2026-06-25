@@ -56,6 +56,7 @@ DRUGS = [
     ("sertraline",      "Zoloft",       "Zoloft",    "Zoloft",      "N06AB06", "SSRI",               "tablet", "50-200mg/day", "25-100mg/day", "No dose adjustment", "Start low, titrate slowly"),
     ("omeprazole",      "Mopral",       "Mopral",    "Mopral",      "A02BC01", "PPI",                "capsule","20-40mg/day","20mg/day","No dose adjustment","Max 20mg/day in severe hepatic failure"),
     ("tramadol",        "Topalgic",     "Topalgic",  "Topalgic",    "N02AX02", "Opioid analgesic",   "tablet", "50-100mg q4-6h, max 400mg/day", "Max 300mg/day", "Extend dosing interval if CrCl<30", "Reduce dose in hepatic failure"),
+    ("quetiapine",      "Seroquel",     "Seroquel",  "Seroquel",    "N05AH04", "Atypical antipsychotic", "tablet", "50-800mg/day", "25-50mg BID, titrate slowly", "No dose adjustment", "Caution in hepatic impairment"),
 ]
 
 
@@ -122,6 +123,15 @@ CONTRAINDICATIONS = [
     ("diclofenac",      "N18", "NSAIDs can reduce renal perfusion; increased AKI risk.", "OpenFDA", "dose_adjustment"),
     ("naproxen",        "N18", "NSAIDs can reduce renal perfusion; increased AKI risk.", "OpenFDA", "dose_adjustment"),
     ("glibenclamide",   "N18", "Prolonged hypoglycemia risk with reduced renal clearance.", "OpenFDA", "dose_adjustment"),
+
+    # Ciprofloxacin / renal impairment — required for Trap 6 (elderly dose scenario)
+    ("ciprofloxacin",   "N18", "Renal impairment reduces ciprofloxacin clearance; dose interval must be extended based on GFR.", "ANSM", "dose_adjustment"),
+
+    # NSAIDs / peptic ulcer disease — COX-1 inhibition worsens mucosal protection
+    ("aspirin",         "K27", "NSAIDs worsen peptic ulcer disease and increase risk of GI haemorrhage.", "ANSM", "contraindicated"),
+    ("ibuprofen",       "K27", "NSAIDs worsen peptic ulcer disease and increase risk of GI haemorrhage.", "ANSM", "contraindicated"),
+    ("diclofenac",      "K27", "NSAIDs worsen peptic ulcer disease and increase risk of GI haemorrhage.", "ANSM", "contraindicated"),
+    ("naproxen",        "K27", "NSAIDs worsen peptic ulcer disease and increase risk of GI haemorrhage.", "ANSM", "contraindicated"),
 ]
 
 for (inn, icd11, reason, source, severity) in CONTRAINDICATIONS:

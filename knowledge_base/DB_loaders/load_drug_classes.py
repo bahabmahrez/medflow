@@ -96,6 +96,7 @@ MOLECULE_CLASSES: dict[str, list[str]] = {
     "lithium":          ["Mood Stabilizer"],
     "haloperidol":      ["Typical Antipsychotic"],
     "risperidone":      ["Atypical Antipsychotic"],
+    "quetiapine":       ["Atypical Antipsychotic"],
 
     # Gastric
     "omeprazole":       ["Proton Pump Inhibitor"],
@@ -235,6 +236,31 @@ with open(EDGES_CSV, newline="", encoding="utf-8") as f:
         edges_loaded += 1
 
 print(f"class_interactions inserted: {edges_loaded}  (skipped: {edges_skipped})")
+
+# ── Hardcoded edges missing from edges.csv ────────────────────────────────────
+# NSAID ↔ Vitamin K Antagonist: not in DrugBank edges.csv but well-established
+# (additive bleeding risk, ANSM contre_indique). Required for stress test 1.
+EXTRA_EDGES = [
+    ("Nonsteroidal Anti-Inflammatory Drug", "Vitamin K Antagonist",
+     "contre_indique", "pharmacodynamic",
+     "NSAIDs inhibit COX-1 impairing platelet function; additive bleeding risk with anticoagulants.",
+     "Avoid combination. If necessary, add gastroprotection and monitor INR closely."),
+]
+
+for (class_a, class_b, severity, mechanism, clinical_effect, management) in EXTRA_EDGES:
+    a_id = class_id_map.get(class_a)
+    b_id = class_id_map.get(class_b)
+    if not a_id or not b_id:
+        print(f"  SKIP extra edge {class_a} <-> {class_b}: class not found")
+        continue
+    cur.execute("""
+        INSERT INTO class_interactions
+            (class_a_id, class_b_id, severity, mechanism_type, clinical_effect, management)
+        VALUES (%s, %s, %s, %s, %s, %s)
+        ON CONFLICT DO NOTHING
+    """, (min(a_id, b_id), max(a_id, b_id), severity, mechanism, clinical_effect, management))
+    if cur.rowcount:
+        print(f"  EXTRA  {class_a} <-> {class_b} -> {severity}")
 
 conn.commit()
 
