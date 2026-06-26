@@ -11,5 +11,16 @@ services:
       - pgdata:/var/lib/postgresql/data
       - ./db/migrations:/docker-entrypoint-initdb.d
 
+  neo4j:
+    image: neo4j:5
+    environment:
+      NEO4J_AUTH: neo4j/medflow
+    ports:
+      - "7474:7474"   # Browser UI  →  http://localhost:7474
+      - "7687:7687"   # Bolt protocol (Python driver)
+    volumes:
+      - neo4jdata:/data
+
 volumes:
   pgdata:
+  neo4jdata:

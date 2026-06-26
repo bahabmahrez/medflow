@@ -1,6 +1,19 @@
-# MedFlow — Week 2 Demo Guide
+# MedFlow — Graph Database Demo Guide
 > How to set up, run, and present the project to the teacher.
-> Estimated time to run everything from scratch: ~15 minutes.
+> Estimated time to run everything from scratch: ~20 minutes.
+
+---
+
+## What Changed from Week 2
+
+MedFlow now runs a **dual-stack** architecture:
+
+| Layer | Technology | Purpose |
+|---|---|---|
+| Relational | PostgreSQL 15 | Original schema — molecules, interactions, patients |
+| **Graph (new)** | **Neo4j 5** | Property graph — enables CYP traversal, allergy chains, polypharmacy detection |
+
+The graph layer holds the same knowledge base but expresses relationships as **typed edges**, enabling queries impossible in SQL — e.g. *"find all patients whose current medications share a CYP enzyme with a recently added drug"* in a single Cypher statement.
 
 ---
 
@@ -10,8 +23,15 @@
 ```
 Docker Desktop     — running
 Python 3.10+       — installed
-psycopg2           — pip install psycopg2-binary
+psycopg2-binary    — pip install psycopg2-binary
+neo4j              — pip install neo4j>=5.0
 requests           — pip install requests
+```
+
+Or install from the requirements files:
+```bash
+pip install -r requirements.txt
+pip install -r requirements-graph.txt
 ```
 
 ### 2. Get the missing datasets from Google Drive
@@ -27,170 +47,146 @@ knowledge_base/sources/dataset/pct_human_medicines_recent_rich_rows.csv
 knowledge_base/sources/dataset/pct_human_medicines_reference_options.csv
 ```
 
-Large files (only needed if re-generating from raw FDA data — not needed for the demo):
-```
-knowledge_base/sources/dataset/toutes_les_interactions_fda.csv  (233 MB)
-knowledge_base/sources/dataset/interactions_enriched.csv        (96 MB)
-```
-
 ---
 
 ## Step-by-Step Setup
 
-### Step 1 — Start the database
+### Step 1 — Start both databases
 ```bash
 docker compose up -d
 ```
-Wait ~5 seconds. The schema (`db/migrations/001_schema.sql`) is applied automatically on first start.
+This starts **PostgreSQL** (port 5432) and **Neo4j 5** (port 7687 / 7474) together.
 
-Verify it is running:
+Verify both are running:
 ```bash
 docker ps
-# should show medflow-postgres-1 (or similar) as Up
+# should show medflow-postgres-1 and medflow-neo4j-1 as Up
+```
+
+Neo4j Browser UI (optional, visual exploration):
+```
+http://localhost:7474
+Username: neo4j   Password: medflow
 ```
 
 ---
 
-### Step 2 — Load all data (run in this exact order)
-
+### Step 2 — Load all data into PostgreSQL (original relational stack)
 ```bash
-# 1. Load the 51 molecules (RxNorm CUIs, ChEMBL IDs)
-python knowledge_base/DB_loaders/load_rxnorm_chembl.py
-
-# 2. Load brand names, contraindications, allergy groups
-python knowledge_base/DB_loaders/load_drugs_contraindications.py
-
-# 3. Load Tunisian PCT brand names
-python knowledge_base/DB_loaders/load_pct_brands.py
-
-# 4. Load ANSM interaction pairs (hand-curated severity)
-python knowledge_base/DB_loaders/load_ansm_interactions.py
-
-# 5. Load FDA-sourced interaction pairs (fills the remaining 280+ pairs)
-python knowledge_base/DB_loaders/load_priority_interactions.py
-
-# 6. Load CYP enzyme relationships from Flockhart table (with strength)
-python knowledge_base/DB_loaders/load_cyp_flockhart.py
-
-# 7. Load drug classes and class-level interaction rules
-python knowledge_base/DB_loaders/load_drug_classes.py
-
-# 8. Load curated high-risk overrides (fills critical gaps not covered by source files)
-python knowledge_base/DB_loaders/load_curated_overrides.py
-
-# 9. Load adverse effects (OpenFDA pharmacovigilance data)
-python knowledge_base/DB_loaders/load_adverse_effects.py
-
-# 10. Load molecular targets (ChEMBL + hardcoded critical targets)
-python knowledge_base/DB_loaders/load_molecular_targets.py
-
-# 11. Load drug indications (what each drug treats)
-python knowledge_base/DB_loaders/load_treats.py
-
-# 12. Load synthetic patients (8 traps + 22 regular)
-python patients/synthetic/load_patients.py
+python run_loaders.py
+```
+This runs all 12 SQL loaders in the correct order. Output should end with:
+```
+All 12 loaders completed successfully.
 ```
 
 ---
 
-### Step 3 — Verify the database is correctly populated
+### Step 3 — Initialise the Neo4j graph schema
+```bash
+python db/graph/init_graph.py
+```
+Creates uniqueness constraints and indexes. Expected output:
+```
+Schema applied: 8 constraints, 11 property indexes
+Neo4j ready.
+```
 
-Run this to see all counts at once:
+---
+
+### Step 4 — Load all data into Neo4j (graph stack)
+```bash
+python run_loaders_graph.py
+```
+This runs the same 12 loaders rewritten in Cypher, in the correct order.
+All loaders are idempotent (safe to re-run). Expected output:
+```
+All 12 loaders completed successfully.
+```
+
+---
+
+### Step 5 — Verify graph contents
+Open Neo4j Browser at `http://localhost:7474` and run:
+```cypher
+MATCH (n) RETURN labels(n)[0] AS label, count(n) AS count
+ORDER BY count DESC
+```
+
+Expected node counts:
+
+| Label | Expected |
+|---|---|
+| Molecule | ~51 |
+| Drug | ~183 |
+| CYPEnzyme | 6 |
+| DrugClass | ~40 |
+| DiseaseConcept | ~30 |
+| AllergyGroup | 5 |
+| AdverseEffect | ~80 |
+| MolecularTarget | ~53 |
+| Patient | **50** |
+| LabResult | ~55 |
+
+Or from the terminal:
 ```bash
 python -c "
-import psycopg2
-conn = psycopg2.connect(dbname='medflow', user='medflow', password='medflow', host='localhost')
-cur = conn.cursor()
-tables = [
-    ('molecules',                  51),
-    ('drugs',                     183),
-    ('drug_interactions',         281),
-    ('cyp_relationships',         127),
-    ('contraindications',          11),
-    ('adverse_effects',          1607),
-    ('molecular_targets',          53),
-    ('treats',                     84),
-    ('drug_classes',               40),
-    ('class_interactions',         88),
-    ('drug_class_members',         53),
-    ('molecule_molecular_targets', 67),
-    ('patients',                   30),
-]
-print('Table                          Count   Target   Status')
-print('-'*60)
-for table, target in tables:
-    cur.execute(f'SELECT COUNT(*) FROM {table}')
-    n = cur.fetchone()[0]
-    ok = 'OK' if n >= target else 'UNDER'
-    print(f'{table:30s}  {n:5d}   >={target:<5d}   {ok}')
-cur.close(); conn.close()
+from neo4j import GraphDatabase
+d = GraphDatabase.driver('bolt://localhost:7687', auth=('neo4j','medflow'))
+r = d.execute_query('MATCH (n) RETURN labels(n)[0] AS l, count(n) AS c ORDER BY c DESC')
+for rec in r.records: print(f'{rec[\"l\"]:25s}  {rec[\"c\"]}')
+d.close()
 "
 ```
-
-Expected output — every row should show **OK**.
 
 ---
 
 ## The Demo — What to Show the Teacher
 
-### Part 1 — Show the schema (2 minutes)
+### Part 1 — Explain the graph model (2 minutes)
 Open `/docs/graph_schema.md` and walk through it.
-**Key talking point:** *"Every table has a single responsibility. The power comes from the edges between them — drug_interactions, cyp_relationships, class_interactions — not from storing everything in one big table."*
+
+**Key talking point:**
+> *"In the relational version, CYP interactions require three JOINs across four tables. In the graph version, the same query is a single Cypher path expression: `(drug)-[:SUBSTRATE_OF]->(enzyme)<-[:INHIBITS]-(inhibitor)`. The graph makes pharmacological reasoning readable."*
 
 ---
 
-### Part 2 — Show the data quality (3 minutes)
+### Part 2 — Show graph traversal queries live (3 minutes)
 
-Run these queries live in the terminal:
+Open Neo4j Browser (`http://localhost:7474`) and run these live:
 
-```bash
-# How many interaction pairs and what severity distribution?
-python -c "
-import psycopg2
-conn = psycopg2.connect(dbname='medflow', user='medflow', password='medflow', host='localhost')
-cur = conn.cursor()
-cur.execute('SELECT severity_active, COUNT(*) FROM drug_interactions GROUP BY severity_active ORDER BY COUNT(*) DESC')
-print('Interaction severity breakdown:')
-for r in cur.fetchall(): print(f'  {r[0]:25s}  {r[1]}')
-cur.close(); conn.close()
-"
+**Query 1 — CYP3A4 conflict for a patient:**
+```cypher
+MATCH (p:Patient {name: 'Nabil Chaabane'})
+      -[:TAKES]->(:Drug)-[:BRAND_OF]->(sub:Molecule)
+      -[:SUBSTRATE_OF]->(cyp:CYPEnzyme {name: 'CYP3A4'})
+      <-[:INHIBITS]-(inh:Molecule)
+      <-[:BRAND_OF]-(:Drug)<-[:TAKES]-(p)
+RETURN p.name, sub.inn AS substrate, cyp.name AS enzyme, inh.inn AS inhibitor
+```
+*"This finds the simvastatin + clarithromycin CYP3A4 conflict directly from the patient node in one hop."*
 
-# Show the CYP strong inhibitors (clinically most dangerous)
-python -c "
-import psycopg2
-conn = psycopg2.connect(dbname='medflow', user='medflow', password='medflow', host='localhost')
-cur = conn.cursor()
-cur.execute('''
-    SELECT m.inn, cr.enzyme, cr.relationship, cr.strength
-    FROM cyp_relationships cr JOIN molecules m ON m.id=cr.molecule_id
-    WHERE cr.strength = \'strong\' ORDER BY cr.enzyme, m.inn
-''')
-print('Strong CYP inhibitors/inducers:')
-for r in cur.fetchall(): print(f'  {r[0]:20s}  {r[1]:8s}  {r[2]:10s}  {r[3]}')
-cur.close(); conn.close()
-"
+**Query 2 — Find all patients with supratherapeutic warfarin AND a CYP2C9 inhibitor:**
+```cypher
+MATCH (p:Patient)
+WHERE p.inr > 3.0
+MATCH (p)-[:TAKES]->(:Drug)-[:BRAND_OF]->(m:Molecule)
+      -[:SUBSTRATE_OF]->(:CYPEnzyme {name: 'CYP2C9'})
+      <-[:INHIBITS]-(:Molecule)<-[:BRAND_OF]-(:Drug)<-[:TAKES]-(p)
+RETURN p.name, p.inr, collect(m.inn) AS warfarin_substrates
+```
 
-# Show the life-threatening adverse effects
-python -c "
-import psycopg2
-conn = psycopg2.connect(dbname='medflow', user='medflow', password='medflow', host='localhost')
-cur = conn.cursor()
-cur.execute('''
-    SELECT m.inn, ae.adverse_effect_name
-    FROM adverse_effects ae JOIN molecules m ON m.id=ae.molecule_id
-    WHERE ae.severity = \'life_threatening\' ORDER BY m.inn
-''')
-print('Life-threatening adverse effects:')
-for r in cur.fetchall(): print(f'  {r[0]:20s}  {r[1]}')
-cur.close(); conn.close()
-"
+**Query 3 — Allergy cross-reactivity chain:**
+```cypher
+MATCH path = (ag1:AllergyGroup {name: 'penicillin'})-[:CROSS_REACTS_WITH*1..2]->(ag2:AllergyGroup)
+RETURN [n IN nodes(path) | n.name] AS allergy_chain
 ```
 
 ---
 
-### Part 3 — Run the trap verifications (5 minutes)
+### Part 3 — Run the SQL trap verifications (3 minutes)
 
-This is the core demo. Run all 8 traps live.
+The original 8 SQL-based traps still work on the PostgreSQL stack:
 
 **PowerShell:**
 ```powershell
@@ -202,78 +198,149 @@ Get-ChildItem evaluation\trap_verifications\trap*.py | ForEach-Object { python $
 for f in evaluation/trap_verifications/trap*.py; do python "$f"; done
 ```
 
-**Expected output — all 8 lines say PASS.**
-
-Then run the 5 additional high-risk pairs:
-```bash
-python evaluation/trap_verifications/additional_high_risk_pairs.py
-```
-
-**Talking point for each trap:**
-| Trap | What it proves |
-|---|---|
-| Trap 1 — Warfarin + Aspirin | Direct interaction pair detected, severity + clinical effect returned |
-| Trap 2 — Metformin + CKD | Disease-drug contraindication detected, not just drug-drug |
-| Trap 3 — Simvastatin + Clarithromycin | Risk detected by traversing CYP3A4 graph, no direct pair needed |
-| Trap 4 — Penicillin allergy + Amoxicillin | Allergy cross-reactivity graph works |
-| Trap 5 — Fluoxetine + Tramadol | Serotonin syndrome caught, CYP2D6 pathway confirmed |
-| Trap 6 — Ciprofloxacin + Renal impairment | Dose adjustment contraindication returned |
-| Trap 7 — Warfarin + Fluconazole | CYP2C9 substrate + strong inhibitor detected |
-| Trap 8 — Tahor vs Atorvastatin | Brand name and INN resolve to the same molecule — therapeutic duplication caught |
+**Expected: all 8 lines say PASS.**
 
 ---
 
-### Part 4 — Run the stress tests (3 minutes)
+### Part 4 — Run the graph trap verifications (5 minutes — main demo)
 
-**PowerShell:**
-```powershell
-Get-ChildItem evaluation\stress_tests\stress*.py | ForEach-Object { python $_.FullName }
-```
+This is the core upgrade. 20 graph traps test traversal patterns impossible in SQL:
 
-**Linux/Mac:**
 ```bash
-for f in evaluation/stress_tests/stress*.py; do python "$f"; done
+python evaluation/graph_verifications/run_all_graph_traps.py
 ```
 
-**Expected output — all 5 say PASS.**
+**Expected: all 20 lines say PASS.**
 
-**Talking point:**
-*"The stress tests deliberately try to break the graph. Stress test 1 proves the class-level fallback works — even a drug not individually programmed can still trigger a warning through its drug class. Stress test 5 proves the engine handles unknown drug names gracefully without crashing."*
+**Talking point for each trap category:**
+
+| Category | Traps | What the graph enables |
+|---|---|---|
+| Direct DDI | 01, 09, 11, 20 | Simple edge lookup — warfarin+aspirin, warfarin+amiodarone, allopurinol+azathioprine, digoxin+amiodarone |
+| CYP 2-hop paths | 03, 07, 10, 12, 13, 14 | `substrate→enzyme←inhibitor` — rhabdomyolysis, INR spike, subtherapeutic warfarin, tacrolimus toxicity, antiplatelet failure |
+| Allergy chain | 04 | `AllergyGroup -[:CROSS_REACTS_WITH]->` — penicillin allergy → cephalosporin risk |
+| Patient-centric | 14, 18 | Start from Patient node, find ALL drug conflicts automatically via traversal |
+| Class-level fallback | 15, 17 | `Molecule -[:MEMBER_OF]-> DrugClass -[:CLASS_INTERACTS_WITH]->` — NSAID+VKA, two SSRIs |
+| Lab-triggered | 16 | `Patient.creatinine_umol_L > 150` with no CKD ICD code — lab-only contraindication |
+| Contraindication | 02, 19 | `Molecule -[:CONTRAINDICATED_FOR]-> DiseaseConcept` — metformin+CKD, NSAID+peptic ulcer |
+| Brand resolution | 08 | `Drug -[:BRAND_OF]-> Molecule` — Tahor resolves to atorvastatin |
+| Dose context | 06 | `Patient.dob` + `Drug.dose_elderly` — elderly ciprofloxacin flag |
 
 ---
 
-### Part 5 — Show the severity disagreements (1 minute)
+### Part 5 — Show a patient's full risk profile (2 minutes)
+
+```bash
+python -c "
+from neo4j import GraphDatabase
+d = GraphDatabase.driver('bolt://localhost:7687', auth=('neo4j','medflow'))
+
+# Bechir Hajji — polypharmacy elderly patient with 6 drugs
+r = d.execute_query('''
+  MATCH (p:Patient {trap_scenario: \"polypharmacy_elderly\"})
+        -[:TAKES]->(drug:Drug)-[:BRAND_OF]->(m:Molecule)
+  RETURN p.name AS patient, m.inn AS drug, drug.brand_name AS brand
+  ORDER BY m.inn
+''')
+print(f\"Patient: {r.records[0]['patient']} — medications:\")
+for rec in r.records:
+    print(f\"  {rec['drug']:20s}  ({rec['brand']})\")
+
+# Find all DDIs among their meds
+ddi = d.execute_query('''
+  MATCH (p:Patient {trap_scenario: \"polypharmacy_elderly\"})
+        -[:TAKES]->(:Drug)-[:BRAND_OF]->(m1:Molecule)
+        -[r:INTERACTS_WITH]-(m2:Molecule)
+        <-[:BRAND_OF]-(:Drug)<-[:TAKES]-(p)
+  WHERE id(m1) < id(m2)
+  RETURN m1.inn AS a, r.severity_active AS sev, m2.inn AS b
+  ORDER BY r.severity_rank DESC
+''')
+print(f\"\nDDI pairs detected from the graph:\")
+for rec in ddi.records:
+    print(f\"  {rec['a']:20s} + {rec['b']:20s}  [{rec['sev']}]\")
+
+d.close()
+"
+```
+
+---
+
+### Part 6 — Show severity source hierarchy (1 minute)
 
 Open `/docs/severity_disagreements.md`.
 
-**Talking point:** *"Every case where ANSM and the FDA rated the same interaction differently is documented here. The system always takes the more conservative value. This is what separates a production-grade knowledge graph from a student project — we know where our sources disagree and we made a deliberate, documented decision for each one."*
+**Talking point:**
+> *"Every case where ANSM and the FDA rated the same interaction differently is documented here. The graph always stores the more conservative value — ANSM overrides FDA, curated overrides upgrade never downgrade. This is what separates a production-grade knowledge graph from a student project."*
 
 ---
 
-## If Something Goes Wrong During the Demo
+## Troubleshooting
 
 | Problem | Fix |
 |---|---|
-| `psycopg2.OperationalError: connection refused` | Docker isn't running — `docker compose up -d`, wait 10 seconds |
-| A trap returns FAIL | Re-run the relevant loader for that trap, then re-run the script |
+| `ServiceUnavailable: Unable to connect to bolt://localhost:7687` | Neo4j container not running — `docker compose up -d neo4j`, wait 15 seconds |
+| `AuthError: The client is unauthorized` | Wrong credentials — check `NEO4J_AUTH=neo4j/medflow` in docker-compose.yml |
+| `psycopg2.OperationalError: connection refused` | PostgreSQL not running — `docker compose up -d postgres` |
+| A graph trap returns FAIL | Re-run the relevant graph loader, then re-run the trap script |
+| `ModuleNotFoundError: neo4j` | `pip install neo4j>=5.0` |
 | `ModuleNotFoundError: psycopg2` | `pip install psycopg2-binary` |
-| Wrong count in a table | Re-run the loader for that table — all loaders are idempotent (safe to re-run) |
+| Wrong node count in Neo4j | All graph loaders use MERGE — re-running `python run_loaders_graph.py` is safe |
 
 ---
 
-## Final DB Numbers (for reference during Q&A)
+## Summary Counts (for Q&A)
 
+### PostgreSQL (relational layer)
 | What | Count |
 |---|---|
-| Molecules in the system | 51 |
+| Molecules | 51 |
 | Drug entries (brands + dosage forms) | 183 |
-| Interaction pairs | 281 (17 ANSM hand-curated + 261 FDA-sourced + 3 curated overrides) |
-| CYP pathway entries | 109 (from Flockhart Indiana University table) |
-| Contraindications | 11 (disease-drug restrictions) |
-| Adverse effects | 1,607 (life-threatening + severe + moderate) |
-| Molecular targets | 53 targets, 67 molecule-target links |
-| Drug indications | 84 (what each drug is for) |
-| Drug classes | 40 classes, 88 class-level interaction rules |
-| Drug class members | 53 molecule-to-class assignments |
-| Synthetic patients | 30 (8 trap scenarios + 22 regular) |
-| Severity disagreements documented | 17 |
+| Interaction pairs | 281 (17 ANSM + 261 FDA + 3 curated) |
+| CYP pathway entries | 109 |
+| Contraindications | 11 |
+| Adverse effects | ~1,600 |
+| Molecular targets | 53 targets, 67 links |
+| Drug indications | 84 |
+| Drug classes | 40 classes, 88 class rules |
+| Synthetic patients | 30 (legacy count) |
+
+### Neo4j (graph layer — new)
+| What | Count |
+|---|---|
+| Molecule nodes | 51 |
+| Drug nodes | ~183 |
+| INTERACTS_WITH edges | 281+ |
+| CYPEnzyme nodes | 6 |
+| SUBSTRATE_OF / INHIBITS / INDUCES edges | 109+ |
+| CONTRAINDICATED_FOR edges | 11+ |
+| DrugClass nodes | ~40 |
+| CLASS_INTERACTS_WITH edges | 88+ |
+| AllergyGroup nodes | 5 |
+| Patient nodes | **50** (20 trap + 30 regular) |
+| Trap scenarios covered | **20** |
+| Graph trap verifications | **20** (all in `evaluation/graph_verifications/`) |
+
+### Trap scenarios breakdown
+| # | Scenario | Traversal type |
+|---|---|---|
+| 1 | Warfarin + Aspirin | Direct INTERACTS_WITH |
+| 2 | Metformin + CKD | CONTRAINDICATED_FOR |
+| 3 | Simvastatin + Clarithromycin | CYP3A4 2-hop |
+| 4 | Penicillin allergy → cephalosporin | CROSS_REACTS_WITH chain |
+| 5 | Fluoxetine + Tramadol | Direct DDI + shared SERT target |
+| 6 | Elderly dose — ciprofloxacin | Patient.dob + Drug.dose_elderly |
+| 7 | Warfarin + Fluconazole | CYP2C9 strong inhibitor 2-hop |
+| 8 | Tahor → atorvastatin | BRAND_OF resolution |
+| 9 | Warfarin + Amiodarone | Direct contre_indique |
+| 10 | Rifampicin + Warfarin | CYP2C9 INDUCES 2-hop |
+| 11 | Allopurinol + Azathioprine | Direct contre_indique (xanthine oxidase) |
+| 12 | Tacrolimus + Fluconazole | Narrow TI + CYP3A4 strong inhibitor |
+| 13 | Clopidogrel + Omeprazole | CYP2C19 loss-of-effect 2-hop |
+| 14 | CYP2D6 patient traversal | Patient→Drug→CYP←Drug←Patient |
+| 15 | NSAID + VKA + steroid | DrugClass CLASS_INTERACTS_WITH fallback |
+| 16 | Metformin eGFR lab-only | Patient.creatinine_umol_L property (no ICD code) |
+| 17 | Two SSRIs | Therapeutic duplication via DrugClass |
+| 18 | Polypharmacy elderly ≥6 drugs | Multi-hop DDI scan from Patient node |
+| 19 | NSAID + Peptic ulcer | Patient→HAS_CONDITION→DC←CONTRAINDICATED_FOR |
+| 20 | Digoxin + Amiodarone | Direct INTERACTS_WITH |
