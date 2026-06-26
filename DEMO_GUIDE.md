@@ -66,7 +66,7 @@ docker ps
 Neo4j Browser UI (optional, visual exploration):
 ```
 http://localhost:7474
-Username: neo4j   Password: medflow
+No login required (auth disabled for local dev)
 ```
 
 ---
@@ -132,7 +132,7 @@ Or from the terminal:
 ```bash
 python -c "
 from neo4j import GraphDatabase
-d = GraphDatabase.driver('bolt://localhost:7687', auth=('neo4j','medflow'))
+d = GraphDatabase.driver('bolt://localhost:7687', auth=None)
 r = d.execute_query('MATCH (n) RETURN labels(n)[0] AS l, count(n) AS c ORDER BY c DESC')
 for rec in r.records: print(f'{rec[\"l\"]:25s}  {rec[\"c\"]}')
 d.close()
@@ -233,7 +233,7 @@ python evaluation/graph_verifications/run_all_graph_traps.py
 ```bash
 python -c "
 from neo4j import GraphDatabase
-d = GraphDatabase.driver('bolt://localhost:7687', auth=('neo4j','medflow'))
+d = GraphDatabase.driver('bolt://localhost:7687', auth=None)
 
 # Bechir Hajji — polypharmacy elderly patient with 6 drugs
 r = d.execute_query('''
@@ -280,7 +280,7 @@ Open `/docs/severity_disagreements.md`.
 | Problem | Fix |
 |---|---|
 | `ServiceUnavailable: Unable to connect to bolt://localhost:7687` | Neo4j container not running — `docker compose up -d neo4j`, wait 15 seconds |
-| `AuthError: The client is unauthorized` | Wrong credentials — check `NEO4J_AUTH=neo4j/medflow` in docker-compose.yml |
+| `AuthError: The client is unauthorized` | Auth should be disabled — verify `NEO4J_AUTH=none` in docker-compose.yml, then `docker compose down neo4j -v && docker compose up -d neo4j` |
 | `psycopg2.OperationalError: connection refused` | PostgreSQL not running — `docker compose up -d postgres` |
 | A graph trap returns FAIL | Re-run the relevant graph loader, then re-run the trap script |
 | `ModuleNotFoundError: neo4j` | `pip install neo4j>=5.0` |

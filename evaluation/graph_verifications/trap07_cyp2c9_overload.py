@@ -1,5 +1,5 @@
 """
-Trap 07 — Warfarin + Fluconazole via CYP2C9 (strong inhibitor → INR spike)
+Trap 07 — Warfarin + Fluconazole via CYP2C9 (strong inhibitor -> INR spike)
 Traversal: 2-hop CYP2C9 path
 Expected:
   - warfarin -[:SUBSTRATE_OF]-> CYP2C9
@@ -33,7 +33,7 @@ driver.close()
 errors = []
 
 if not path.records:
-    errors.append("no CYP2C9 path: warfarin SUBSTRATE_OF → CYP2C9 ← fluconazole INHIBITS")
+    errors.append("no CYP2C9 path: warfarin SUBSTRATE_OF -> CYP2C9 <- fluconazole INHIBITS")
 else:
     strength = path.records[0]["strength"]
     if strength != "strong":
@@ -49,4 +49,4 @@ if errors:
     fail(" | ".join(errors))
 
 inr = patient.records[0]["inr"] if patient.records else "?"
-pass_(f"warfarin → CYP2C9(strong) ← fluconazole  patient INR={inr}")
+pass_(f"warfarin -> CYP2C9(strong) <- fluconazole  patient INR={inr}")

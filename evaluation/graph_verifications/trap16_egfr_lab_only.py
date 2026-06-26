@@ -52,7 +52,7 @@ errors = []
 
 if not lab_risk.records:
     errors.append(
-        "patient 'metformin_egfr_lab_only' not found, creatinine ≤ 150 umol/L, "
+        "patient 'metformin_egfr_lab_only' not found, creatinine <= 150 umol/L, "
         "or not taking metformin"
     )
 

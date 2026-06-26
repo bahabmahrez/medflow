@@ -1,9 +1,9 @@
 """
 Trap 14 — CYP2D6 patient-centric traversal (fluoxetine inhibits tramadol activation)
-Traversal: Patient → Drug → Molecule → CYP2D6 ← Molecule ← Drug ← Patient
+Traversal: Patient -> Drug -> Molecule -> CYP2D6 <- Molecule <- Drug <- Patient
 Expected:
   - starting from the patient node, Cypher finds the CYP2D6 conflict automatically
-  - fluoxetine inhibits CYP2D6 which activates tramadol (prodrug → active M1)
+  - fluoxetine inhibits CYP2D6 which activates tramadol (prodrug -> active M1)
   - patient Zied Barka co-prescribed both
 """
 import os, sys
@@ -56,6 +56,6 @@ if errors:
 
 rec = conflict.records[0]
 pass_(
-    f"patient={rec['patient']}  {rec['substrate']}→{rec['cyp']}←{rec['inhibitor']}  "
+    f"patient={rec['patient']}  {rec['substrate']}->{rec['cyp']}<-{rec['inhibitor']}  "
     "patient-centric CYP2D6 traversal succeeded"
 )

@@ -23,8 +23,8 @@ from neo4j.exceptions import ServiceUnavailable, AuthError
 
 
 NEO4J_URI      = os.getenv("NEO4J_URI",      "bolt://localhost:7687")
-NEO4J_USER     = os.getenv("NEO4J_USER",     "neo4j")
-NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "medflow")
+NEO4J_USER     = os.getenv("NEO4J_USER",     "")
+NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "")
 
 SCHEMA_FILE = Path(__file__).parent / "schema.cypher"
 
@@ -48,11 +48,12 @@ def _parse_statements(cypher: str) -> list[str]:
 
 def run():
     try:
-        driver = GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASSWORD))
+        auth   = (NEO4J_USER, NEO4J_PASSWORD) if NEO4J_USER else None
+        driver = GraphDatabase.driver(NEO4J_URI, auth=auth)
         driver.verify_connectivity()
     except ServiceUnavailable:
         print(f"ERROR: Cannot reach Neo4j at {NEO4J_URI}")
-        print("       Is the container running?  →  docker compose up -d neo4j")
+        print("       Is the container running?  ->  docker compose up -d neo4j")
         sys.exit(1)
     except AuthError:
         print("ERROR: Neo4j authentication failed.")
@@ -83,7 +84,7 @@ def run():
                 applied[kind] += 1
             except Exception as exc:
                 # IF NOT EXISTS means this should never raise, but be safe
-                print(f"  !!  {kind:10s}  {name}  →  {exc}")
+                print(f"  !!  {kind:10s}  {name}  ->  {exc}")
                 applied["skipped"] += 1
 
     print()
@@ -96,7 +97,7 @@ def _print_summary(driver):
         constraints = session.run("SHOW CONSTRAINTS").data()
         indexes     = session.run("SHOW INDEXES WHERE type <> 'LOOKUP'").data()
 
-    print("─" * 60)
+    print("-" * 60)
     print(f"Schema summary")
     print(f"  Constraints : {len(constraints)}")
     print(f"  Indexes     : {len(indexes)}")
@@ -109,7 +110,7 @@ def _print_summary(driver):
         "Patient", "LabResult",
     ]
     for label in labels:
-        print(f"    · {label}")
+        print(f"    - {label}")
 
     print()
     print("  Relationship types expected by loaders:")
@@ -120,11 +121,11 @@ def _print_summary(driver):
         "HAS_ADVERSE_EFFECT", "TAKES", "HAS_CONDITION", "ALLERGIC_TO", "HAS_LAB",
     ]
     for rt in rel_types:
-        print(f"    · {rt}")
+        print(f"    - {rt}")
 
     print()
-    print("Neo4j Browser  →  http://localhost:7474")
-    print("Bolt URI       →  bolt://localhost:7687")
+    print("Neo4j Browser  ->  http://localhost:7474")
+    print("Bolt URI       ->  bolt://localhost:7687")
     print()
     print("Next step: python run_loaders_graph.py")
 

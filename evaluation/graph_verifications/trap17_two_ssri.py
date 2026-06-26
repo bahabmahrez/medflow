@@ -4,7 +4,7 @@ Traversal: Patient → Drug → Molecule → MEMBER_OF → DrugClass (collect 2+
 Expected:
   - patient Soumaya Hamdi has both fluoxetine and sertraline
   - both are MEMBER_OF an SSRI DrugClass
-  - collecting class members from patient medications finds ≥ 2 SSRIs
+  - collecting class members from patient medications finds >= 2 SSRIs
 """
 import os, sys
 sys.path.insert(0, os.path.dirname(__file__))
@@ -24,7 +24,7 @@ ssri_class = driver.execute_query(
     """
 )
 
-# Patient-centric: find all DrugClasses where this patient has ≥ 2 drugs
+# Patient-centric: find all DrugClasses where this patient has >= 2 drugs
 dup_check = driver.execute_query(
     """
     MATCH (p:Patient {trap_scenario: 'two_ssri'})
@@ -63,7 +63,7 @@ else:
 
 if not dup_check.records:
     errors.append(
-        "patient-centric duplication query found no shared DrugClass with ≥ 2 drugs — "
+        "patient-centric duplication query found no shared DrugClass with >= 2 drugs — "
         "MEMBER_OF edges or DrugClass grouping may be missing"
     )
 

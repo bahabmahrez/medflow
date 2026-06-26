@@ -53,8 +53,8 @@ def main():
         print(f"        {GREEN}OK{RESET}  ({elapsed:.1f}s)\n")
 
     print(f"{GREEN}{BOLD}All {total} loaders completed successfully.{RESET}")
-    print(f"\nNeo4j Browser  →  http://localhost:7474")
-    print(f"Quick check    →  MATCH (n) RETURN labels(n)[0] AS label, count(n) ORDER BY count(n) DESC")
+    print(f"\nNeo4j Browser  ->  http://localhost:7474")
+    print(f"Quick check    ->  MATCH (n) RETURN labels(n)[0] AS label, count(n) ORDER BY count(n) DESC")
 
 
 if __name__ == "__main__":

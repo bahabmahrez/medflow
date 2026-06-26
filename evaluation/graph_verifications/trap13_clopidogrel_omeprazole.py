@@ -33,7 +33,7 @@ driver.close()
 errors = []
 
 if not path.records:
-    errors.append("no CYP2C19 path: clopidogrel SUBSTRATE_OF → CYP2C19 ← omeprazole INHIBITS")
+    errors.append("no CYP2C19 path: clopidogrel SUBSTRATE_OF -> CYP2C19 <- omeprazole INHIBITS")
 
 if patient.records:
     drugs = patient.records[0]["drugs"]
@@ -46,4 +46,4 @@ else:
 if errors:
     fail(" | ".join(errors))
 
-pass_("clopidogrel→CYP2C19←omeprazole  2-hop path  ACS patient co-prescribed")
+pass_("clopidogrel->CYP2C19<-omeprazole  2-hop path  ACS patient co-prescribed")

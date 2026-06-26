@@ -3,7 +3,7 @@ Trap 18 — Polypharmacy in elderly patient (6 drugs, multiple interactions)
 Traversal: Patient properties + multi-hop interaction scan
 Expected:
   - patient Bechir Hajji born 1946 (age > 75)
-  - patient takes ≥ 6 drugs simultaneously
+  - patient takes >= 6 drugs simultaneously
   - at least one direct INTERACTS_WITH edge exists among co-prescribed drugs
   - warfarin + aspirin DDI detectable from patient's medication set
 """
@@ -46,9 +46,9 @@ else:
     dob        = rec["dob"]
     drug_count = rec["drug_count"]
     if dob and int(str(dob)[:4]) > 1951:
-        errors.append(f"patient dob={dob!r} — expected birth year ≤ 1951 (age > 75)")
+        errors.append(f"patient dob={dob!r} — expected birth year <= 1951 (age > 75)")
     if drug_count < 6:
-        errors.append(f"drug_count={drug_count} — expected ≥ 6 for polypharmacy scenario")
+        errors.append(f"drug_count={drug_count} — expected >= 6 for polypharmacy scenario")
 
 if not ddi_scan.records:
     errors.append("no INTERACTS_WITH edges found among patient's co-prescribed drugs")

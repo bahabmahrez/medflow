@@ -35,7 +35,7 @@ driver.close()
 errors = []
 
 if not path.records:
-    errors.append("no 2-hop CYP3A4 path: simvastatin SUBSTRATE_OF → CYP3A4 ← clarithromycin INHIBITS")
+    errors.append("no 2-hop CYP3A4 path: simvastatin SUBSTRATE_OF -> CYP3A4 <- clarithromycin INHIBITS")
 else:
     strength = path.records[0]["strength"]
     if strength != "strong":
@@ -50,4 +50,4 @@ if patient.records:
 if errors:
     fail(" | ".join(errors))
 
-pass_("simvastatin → CYP3A4(strong) ← clarithromycin  2-hop path + patient verified")
+pass_("simvastatin -> CYP3A4(strong) <- clarithromycin  2-hop path + patient verified")

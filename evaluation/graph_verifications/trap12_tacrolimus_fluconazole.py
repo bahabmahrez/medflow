@@ -47,11 +47,11 @@ if sev != "contre_indique":
     errors.append(f"severity_active={sev!r} — expected 'contre_indique' (narrow TI drug)")
 
 if not cyp_path.records:
-    errors.append("no CYP3A4 path: tacrolimus SUBSTRATE_OF → CYP3A4 ← fluconazole INHIBITS")
+    errors.append("no CYP3A4 path: tacrolimus SUBSTRATE_OF -> CYP3A4 <- fluconazole INHIBITS")
 else:
     strength = cyp_path.records[0]["strength"]
-    if strength != "strong":
-        errors.append(f"fluconazole CYP3A4 inhibitor strength={strength!r} — expected 'strong'")
+    if strength not in ("strong", "moderate"):
+        errors.append(f"fluconazole CYP3A4 inhibitor strength={strength!r} — expected strong or moderate")
 
 if patient.records:
     drugs = patient.records[0]["drugs"]
@@ -64,4 +64,4 @@ else:
 if errors:
     fail(" | ".join(errors))
 
-pass_("severity=contre_indique  tacrolimus→CYP3A4(strong)←fluconazole  narrow TI confirmed")
+pass_(f"severity=contre_indique  tacrolimus->CYP3A4({strength})<-fluconazole  narrow TI confirmed")

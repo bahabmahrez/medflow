@@ -2,7 +2,7 @@
 Trap 02 — Metformin + Chronic Kidney Disease (contraindication)
 Traversal: direct CONTRAINDICATED_FOR edge
 Expected:
-  - CONTRAINDICATED_FOR edge exists for metformin → renal impairment concept
+  - CONTRAINDICATED_FOR edge exists for metformin -> renal impairment concept
   - severity = contraindicated
   - reason mentions lactic acidosis or renal clearance
 """
@@ -24,7 +24,7 @@ result = driver.execute_query(
 driver.close()
 
 if not result.records:
-    fail("no CONTRAINDICATED_FOR edge for metformin → renal impairment")
+    fail("no CONTRAINDICATED_FOR edge for metformin -> renal impairment")
 
 rec    = result.records[0]
 sev    = rec["sev"]

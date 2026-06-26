@@ -1,5 +1,5 @@
 """
-Trap 04 — Penicillin allergy → cephalosporin cross-reactivity (2-hop allergy path)
+Trap 04 — Penicillin allergy -> cephalosporin cross-reactivity (2-hop allergy path)
 Traversal: AllergyGroup -[:CROSS_REACTS_WITH]-> AllergyGroup
 Expected:
   - penicillin and cephalosporin AllergyGroup nodes exist
@@ -39,7 +39,7 @@ driver.close()
 errors = []
 
 if not cross.records:
-    errors.append("no CROSS_REACTS_WITH edge: penicillin → cephalosporin")
+    errors.append("no CROSS_REACTS_WITH edge: penicillin -> cephalosporin")
 
 if not membership.records:
     errors.append("amoxicillin drug not linked to penicillin AllergyGroup via BELONGS_TO_ALLERGY_GROUP")
@@ -54,4 +54,4 @@ else:
 if errors:
     fail(" | ".join(errors))
 
-pass_("penicillin ↔ cephalosporin CROSS_REACTS_WITH  amoxicillin membership  patient allergy verified")
+pass_("penicillin <-> cephalosporin CROSS_REACTS_WITH  amoxicillin membership  patient allergy verified")

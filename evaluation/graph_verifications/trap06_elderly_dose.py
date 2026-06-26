@@ -40,7 +40,7 @@ else:
     cre = rec["cre"]
     # Verify approximate age > 75 from stored DOB string (born 1948)
     if dob and int(str(dob)[:4]) > 1951:
-        errors.append(f"patient dob={dob!r} — expected birth year ≤ 1951 for age > 75")
+        errors.append(f"patient dob={dob!r} — expected birth year <= 1951 for age > 75")
     if cre is not None and cre <= 100:
         errors.append(f"creatinine={cre} umol/L — expected > 100 to flag dose adjustment")
 

@@ -1,5 +1,5 @@
 """
-Trap 08 — Brand resolution: Tahor → atorvastatin (same Molecule node)
+Trap 08 — Brand resolution: Tahor -> atorvastatin (same Molecule node)
 Traversal: Drug -[:BRAND_OF]-> Molecule
 Expected:
   - Drug node with brand_name_tn='Tahor' exists
@@ -45,4 +45,4 @@ if by_brand.records and by_inn.records:
 if errors:
     fail(" | ".join(errors))
 
-pass_(f"Tahor → atorvastatin via BRAND_OF  rxnorm_cui={by_inn.records[0]['rxnorm']}")
+pass_(f"Tahor -> atorvastatin via BRAND_OF  rxnorm_cui={by_inn.records[0]['rxnorm']}")

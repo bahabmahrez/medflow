@@ -65,6 +65,6 @@ if errors:
 
 ci = class_interaction.records[0]
 pass_(
-    f"CLASS_INTERACTS_WITH: {ci['nsaid_class']} ↔ {ci['vka_class']}  "
+    f"CLASS_INTERACTS_WITH: {ci['nsaid_class']} <-> {ci['vka_class']}  "
     "patient on warfarin+ibuprofen+prednisolone"
 )

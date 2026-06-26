@@ -153,7 +153,7 @@ for inn, classes in MOLECULE_CLASSES.items():
         if result.records:
             members_loaded += 1
         else:
-            print(f"  SKIP {inn} → {class_name}: molecule or class not found")
+            print(f"  SKIP {inn} -> {class_name}: molecule or class not found")
 
 print(f"MEMBER_OF edges: {members_loaded}")
 

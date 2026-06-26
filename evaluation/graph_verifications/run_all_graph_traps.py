@@ -15,13 +15,13 @@ TRAPS = [
     ("trap01", "trap01_warfarin_aspirin.py",       "Warfarin + Aspirin (direct DDI)"),
     ("trap02", "trap02_metformin_ckd.py",           "Metformin + CKD contraindication"),
     ("trap03", "trap03_simvastatin_cyp3a4.py",      "Simvastatin + Clarithromycin (CYP3A4 2-hop)"),
-    ("trap04", "trap04_penicillin_allergy.py",      "Penicillin allergy → cephalosporin cross-reactivity"),
+    ("trap04", "trap04_penicillin_allergy.py",      "Penicillin allergy -> cephalosporin cross-reactivity"),
     ("trap05", "trap05_serotonin_syndrome.py",      "Fluoxetine + Tramadol (serotonin syndrome)"),
     ("trap06", "trap06_elderly_dose.py",            "Elderly dose context (ciprofloxacin)"),
     ("trap07", "trap07_cyp2c9_overload.py",         "Warfarin + Fluconazole (CYP2C9 strong inhibitor)"),
-    ("trap08", "trap08_brand_resolution.py",        "Tahor → atorvastatin brand resolution"),
+    ("trap08", "trap08_brand_resolution.py",        "Tahor -> atorvastatin brand resolution"),
     ("trap09", "trap09_warfarin_amiodarone.py",     "Warfarin + Amiodarone (contre_indique)"),
-    ("trap10", "trap10_rifampicin_inducer.py",      "Rifampicin CYP2C9 inducer → subtherapeutic warfarin"),
+    ("trap10", "trap10_rifampicin_inducer.py",      "Rifampicin CYP2C9 inducer -> subtherapeutic warfarin"),
     ("trap11", "trap11_allopurinol_azathioprine.py","Allopurinol + Azathioprine (xanthine oxidase)"),
     ("trap12", "trap12_tacrolimus_fluconazole.py",  "Tacrolimus + Fluconazole (narrow TI)"),
     ("trap13", "trap13_clopidogrel_omeprazole.py",  "Clopidogrel + Omeprazole (CYP2C19 2-hop)"),
@@ -29,7 +29,7 @@ TRAPS = [
     ("trap15", "trap15_nsaid_class_fallback.py",    "NSAID + VKA class-level interaction"),
     ("trap16", "trap16_egfr_lab_only.py",           "Metformin + eGFR lab-only (no CKD ICD code)"),
     ("trap17", "trap17_two_ssri.py",                "Two SSRIs — therapeutic duplication"),
-    ("trap18", "trap18_polypharmacy_elderly.py",    "Polypharmacy elderly (≥6 drugs)"),
+    ("trap18", "trap18_polypharmacy_elderly.py",    "Polypharmacy elderly (>=6 drugs)"),
     ("trap19", "trap19_nsaid_peptic_ulcer.py",      "NSAID + Peptic ulcer contraindication"),
     ("trap20", "trap20_digoxin_amiodarone.py",      "Digoxin + Amiodarone (direct DDI)"),
 ]
@@ -86,9 +86,9 @@ def main():
         sys.exit(1)
     else:
         print(f"\n{GREEN}All graph traps passed.{RESET}")
-        print(f"\nNeo4j Browser →  http://localhost:7474")
+        print(f"\nNeo4j Browser ->  http://localhost:7474")
         print(
-            "Quick check   →  "
+            "Quick check   ->  "
             "MATCH (p:Patient) WHERE p.is_trap = true "
             "RETURN p.trap_scenario, p.name ORDER BY p.patient_id"
         )

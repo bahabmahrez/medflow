@@ -4,7 +4,7 @@ Traversal: 2-hop CYP2C9 induction path
 Expected:
   - rifampicin -[:INDUCES]-> CYP2C9
   - warfarin -[:SUBSTRATE_OF]-> CYP2C9
-  - induction 2-hop path: rifampicin → CYP2C9 ← warfarin
+  - induction 2-hop path: rifampicin -> CYP2C9 <- warfarin
   - patient Hajer Belhaj has INR = 1.3 (subtherapeutic due to induction)
 """
 import os, sys
@@ -34,7 +34,7 @@ driver.close()
 errors = []
 
 if not path.records:
-    errors.append("no CYP2C9 induction path: rifampicin INDUCES → CYP2C9 ← warfarin SUBSTRATE_OF")
+    errors.append("no CYP2C9 induction path: rifampicin INDUCES -> CYP2C9 <- warfarin SUBSTRATE_OF")
 
 if patient.records:
     drugs = patient.records[0]["drugs"]
@@ -51,4 +51,4 @@ if errors:
     fail(" | ".join(errors))
 
 inr = patient.records[0]["inr"] if patient.records else "?"
-pass_(f"rifampicin INDUCES CYP2C9 ← warfarin SUBSTRATE_OF  patient INR={inr} (subtherapeutic)")
+pass_(f"rifampicin INDUCES CYP2C9 <- warfarin SUBSTRATE_OF  patient INR={inr} (subtherapeutic)")
