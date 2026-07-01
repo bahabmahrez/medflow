@@ -112,7 +112,7 @@ def full_prescription_check(
     ]
 
     critical_count = (
-        len([i for i in all_interactions if i.get("severity") in ("contre_indique", "major")])
+        len([i for i in all_interactions if i.get("severity") in ("contre_indique", "deconseillee", "major")])
         + len([c for c in all_competitions if c.get("strength") == "strong"])
         + len([ci for ci in all_ci if ci.get("severity") == "contraindicated"])
         + len(all_allergy)

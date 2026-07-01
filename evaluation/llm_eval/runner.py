@@ -18,6 +18,38 @@ from graphrag import ask
 from .cases import CASES
 
 
+# ── Rate-limit helpers ───────────────────────────────────────────────────────
+
+_RATE_LIMIT_KEYWORDS = [
+    "rate limit",
+    "rate_limit",
+    "too many requests",
+    "429",
+    "requests per minute",
+    "rate limit reached",
+]
+
+_MAX_RATE_LIMIT_RETRIES = 3
+
+
+def _is_rate_limit_error(result: dict) -> bool:
+    """Return True when the pipeline result contains a rate-limit failure."""
+    error = (result.get("error") or "").lower()
+    answer = (result.get("answer") or "").lower()
+    payload = f"{error}\n{answer}"
+    return any(keyword in payload for keyword in _RATE_LIMIT_KEYWORDS)
+
+
+def _is_rate_limit_exception(exc: Exception) -> bool:
+    """Return True for exceptions that indicate a retryable rate-limit response."""
+    lowered = f"{type(exc).__name__}: {exc}".lower()
+    if any(keyword in lowered for keyword in _RATE_LIMIT_KEYWORDS):
+        return True
+
+    name = type(exc).__name__
+    return name in {"RateLimitError", "TooManyRequestsError", "RetryAfterError"}
+
+
 # ── Scoring ────────────────────────────────────────────────────────────────────
 
 def score(case: dict, result: dict) -> dict:
@@ -87,8 +119,33 @@ def run_cases(cases: list[dict], delay: float = 0.5) -> list[dict]:
     results = []
     for i, case in enumerate(cases, 1):
         print(f"  [{i:02d}/{len(cases):02d}] {case['id']}  {case['description'][:55]}", end="", flush=True)
+
+        pipeline_result = None
+        attempt = 1
+        while attempt <= _MAX_RATE_LIMIT_RETRIES:
+            try:
+                pipeline_result = ask(case["question"], **case["ask_kwargs"])
+            except Exception as exc:
+                if attempt < _MAX_RATE_LIMIT_RETRIES and _is_rate_limit_exception(exc):
+                    backoff = delay * (2 ** (attempt - 1))
+                    print(f"  [RETRY] rate limit hit (attempt {attempt}/{_MAX_RATE_LIMIT_RETRIES}), retrying in {backoff:.1f}s")
+                    time.sleep(backoff)
+                    attempt += 1
+                    continue
+                raise
+
+            if _is_rate_limit_error(pipeline_result) and attempt < _MAX_RATE_LIMIT_RETRIES:
+                backoff = delay * (2 ** (attempt - 1))
+                print(f"  [RETRY] rate limit response (attempt {attempt}/{_MAX_RATE_LIMIT_RETRIES}), retrying in {backoff:.1f}s")
+                time.sleep(backoff)
+                attempt += 1
+                continue
+
+            break
+
         try:
-            pipeline_result = ask(case["question"], **case["ask_kwargs"])
+            if pipeline_result is None:
+                raise RuntimeError("No pipeline result returned")
             scored = score(case, pipeline_result)
             status = "PASS" if scored["passed"] else "FAIL"
             print(f"  [{status}]")
@@ -96,8 +153,9 @@ def run_cases(cases: list[dict], delay: float = 0.5) -> list[dict]:
                 for f in scored["failures"]:
                     print(f"         ✗ {f}")
         except Exception as exc:
-            scored = {"passed": False, "failures": [str(exc)], "result": {}}
+            scored = {"passed": False, "failures": [str(exc)], "result": pipeline_result or {}}
             print(f"  [ERROR] {exc}")
+
         results.append({"case": case, "scored": scored})
         if i < len(cases):
             time.sleep(delay)

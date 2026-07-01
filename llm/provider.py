@@ -13,8 +13,8 @@ Supported providers (LLM_PROVIDER env var):
 """
 import os
 
-LLM_PROVIDER  = os.getenv("LLM_PROVIDER",  "anthropic")
-LLM_MODEL     = os.getenv("LLM_MODEL",     "claude-haiku-4-5-20251001")
+LLM_PROVIDER  = os.getenv("LLM_PROVIDER",  "groq")
+LLM_MODEL     = os.getenv("LLM_MODEL",     "groq/compound-mini")
 LLM_MAX_TOKENS = int(os.getenv("LLM_MAX_TOKENS", "1024"))
 
 # ── Context injection template ─────────────────────────────────────────────────
