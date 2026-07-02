@@ -1,9 +1,9 @@
 
 CREATE TABLE disease_concepts (
     id                  SERIAL PRIMARY KEY,
-    icd11_code          VARCHAR(20),
-    snomed_code         VARCHAR(50),
-    condition_name      VARCHAR(255) NOT NULL,
+    icd11_code          VARCHAR(20),  -- système de classification internationale des maladies
+    snomed_code         VARCHAR(50),  -- terminologie clinique riche
+    condition_name      VARCHAR(255) NOT NULL, --nom lisible de la maladie 
     description         TEXT,
     UNIQUE(icd11_code),
     UNIQUE(snomed_code)
@@ -17,13 +17,12 @@ CREATE INDEX idx_disease_concepts_snomed ON disease_concepts(snomed_code);
 
 CREATE TABLE molecules (
     id                  SERIAL PRIMARY KEY,
-    inn                 VARCHAR(255) UNIQUE NOT NULL,   -- International Nonproprietary Name
-    rxnorm_cui          VARCHAR(20),
-    drugbank_id         VARCHAR(20),
+    inn                 VARCHAR(255) UNIQUE NOT NULL,   --  le nom scientifique officiel
+    rxnorm_cui          VARCHAR(20),     -- RxNorm Concept Unique Identifier 
     chembl_id           VARCHAR(50),
-    molecular_class     VARCHAR(100),
-    half_life_hours     NUMERIC,
-    elimination_route   VARCHAR(50)
+    molecular_class     VARCHAR(100), -- classe interne e.g. NSAID, anticoagulant, SSRI
+    half_life_hours     NUMERIC,  -- utile pour raisonner sur la durée d'action et les interactions
+    elimination_route   VARCHAR(50)  --Voie d'élimination (rénale, hépatique, mixte) 
 );
 
 CREATE INDEX idx_molecules_rxnorm    ON molecules(rxnorm_cui);
@@ -37,16 +36,16 @@ CREATE INDEX idx_molecules_chembl    ON molecules(chembl_id);
 CREATE TABLE drugs (
     id                      SERIAL PRIMARY KEY,
     molecule_id             INT REFERENCES molecules(id) NOT NULL,
-    brand_name              VARCHAR(255),
+    brand_name              VARCHAR(255),  --Nom de marque générique (international)
     brand_name_tn           VARCHAR(255),  -- Tunisian brand name
     brand_name_fr           VARCHAR(255),  -- French brand name
     atc_code                VARCHAR(10),   -- Display/lookup only; class membership via drug_class_members
     therapeutic_category    VARCHAR(100),
     dosage_form             VARCHAR(50),
-    dose_adult              VARCHAR(100),
-    dose_elderly            VARCHAR(100),
-    dose_renal_impairment   VARCHAR(100),
-    dose_hepatic_impairment VARCHAR(100)
+    dose_adult              VARCHAR(100),    --Posologie adulte standard
+    dose_elderly            VARCHAR(100),  --Posologie ajustée pour la personne âgée
+    dose_renal_impairment   VARCHAR(100),   --Posologie ajustée pour l'insuffisance rénale
+    dose_hepatic_impairment VARCHAR(100)    --Posologie ajustée pour l'insuffisance hépatique
 );
 
 CREATE INDEX idx_drugs_molecule    ON drugs(molecule_id);
@@ -62,18 +61,17 @@ CREATE TABLE drug_interactions (
     id                      SERIAL PRIMARY KEY,
     molecule_a_id           INT REFERENCES molecules(id) NOT NULL,
     molecule_b_id           INT REFERENCES molecules(id) NOT NULL,
-    severity_drugbank       VARCHAR(20),   -- DrugBank severity label
-    severity_ansm           VARCHAR(40),   -- ANSM severity label
+    severity_ansm           VARCHAR(40),   -- ANSM severity label (contre-indiqué / déconseillé / précaution / à surveiller)
     severity_active         VARCHAR(40),   -- Conservative of the two (computed by loader)
     mechanism_type          VARCHAR(50),   -- pharmacokinetic | pharmacodynamic | combined
     mechanism_description   TEXT,
-    clinical_effect         TEXT,
-    management              TEXT,
-    dose_dependent          BOOLEAN DEFAULT FALSE,
+    clinical_effect         TEXT,  --Effet clinique attendu (ex: risque hémorragique augmenté)
+    management              TEXT,  --Conduite à tenir (éviter / surveiller INR / réduire dose…)
+    dose_dependent          BOOLEAN DEFAULT FALSE,   --Vrai si le risque varie avec la dose
     onset                   VARCHAR(20),   -- rapid | delayed | unknown
     documentation_level     VARCHAR(20),   -- established | probable | suspected | theoretical
     condition_modifiers     TEXT,          -- e.g. "risk increases with renal impairment"
-    source_confidence       VARCHAR(20),
+    source_confidence       VARCHAR(20),  --Confiance globale dans la source
     UNIQUE(molecule_a_id, molecule_b_id),
     CHECK (molecule_a_id <> molecule_b_id)
 );
@@ -106,9 +104,9 @@ CREATE TABLE contraindications (
     id                  SERIAL PRIMARY KEY,
     molecule_id         INT REFERENCES molecules(id) NOT NULL,   -- molecule level (not drug) for consistency with interaction engine
     disease_concept_id  INT REFERENCES disease_concepts(id) NOT NULL,
-    reason              TEXT NOT NULL,
+    reason              TEXT NOT NULL,  --Explication clinique de la contre-indication
     severity            VARCHAR(20),   -- contraindicated | dose_adjustment | monitoring
-    source              VARCHAR(50),   -- drugbank | openfda | ansm
+    source              VARCHAR(50),   --  openfda | ansm
     UNIQUE(molecule_id, disease_concept_id)
 );
 
@@ -124,7 +122,7 @@ CREATE INDEX idx_contraindications_disease  ON contraindications(disease_concept
 CREATE TABLE drug_classes (
     id          SERIAL PRIMARY KEY,
     atc_code    VARCHAR(10) UNIQUE NOT NULL,
-    class_name  VARCHAR(255) NOT NULL,
+    class_name  VARCHAR(255) NOT NULL,  --Nom de la classe (ex: Anti-inflammatoires non stéroïdiens)
     description TEXT
 );
 
@@ -162,8 +160,8 @@ CREATE TABLE adverse_effects (
     id                  SERIAL PRIMARY KEY,
     molecule_id         INT REFERENCES molecules(id) NOT NULL,
     meddra_code         VARCHAR(20),       -- MedDRA preferred term code (required by spec)
-    snomed_code         VARCHAR(50),
-    adverse_effect_name VARCHAR(255) NOT NULL,
+    snomed_code         VARCHAR(50),   --Code SNOMED alternatif
+    adverse_effect_name VARCHAR(255) NOT NULL,   --nom lisible de l'effet indésirable
     severity            VARCHAR(40),       -- mild | moderate | severe | life-threatening
     frequency           VARCHAR(50),       -- very_common | common | uncommon | rare | very_rare
     source              VARCHAR(50)        -- openfda | drugbank | literature

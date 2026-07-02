@@ -99,6 +99,7 @@ def test_extract_drugs_empty_text():
         assert extract_drugs("") == []
 
 
+
 # ── ask() structure ────────────────────────────────────────────────────────────
 
 def test_ask_empty_question_no_graph_call():

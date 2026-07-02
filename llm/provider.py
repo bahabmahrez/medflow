@@ -12,6 +12,9 @@ Supported providers (LLM_PROVIDER env var):
   groq       — Groq API (OpenAI-compat)  (set LLM_PROVIDER=groq)
 """
 import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 LLM_PROVIDER  = os.getenv("LLM_PROVIDER",  "groq")
 LLM_MODEL     = os.getenv("LLM_MODEL",     "groq/compound-mini")
