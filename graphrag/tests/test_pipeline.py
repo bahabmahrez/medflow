@@ -178,7 +178,7 @@ def test_ask_risk_level_medium_for_moderate():
         "mechanism": "additive", "source": "ANSM",
     }
 
-    with patch("graphrag.pipeline.resolve_drug_name", side_effect=fake_resolve), \
+    with patch("graphrag.pipeline.extract_drugs", return_value=["metoprolol", "diltiazem"]), \
          patch("graphrag.pipeline.detect_pairwise_interactions",
                return_value=_ix_result(["metoprolol", "diltiazem"], [interaction])), \
          patch("graphrag.pipeline.detect_cyp_competition",
@@ -230,7 +230,7 @@ def test_ask_context_contains_interaction_section():
 
 def test_ask_graph_down_returns_error():
     """If the graph raises during extraction, ask() returns an error response."""
-    with patch("graphrag.pipeline.resolve_drug_name",
+    with patch("graphrag.pipeline.extract_drugs",
                side_effect=Exception("Connection refused")):
         from graphrag import ask
         r = ask("warfarin with amiodarone")

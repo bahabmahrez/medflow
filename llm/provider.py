@@ -14,10 +14,10 @@ Supported providers (LLM_PROVIDER env var):
 import os
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv(override=True)
 
-LLM_PROVIDER  = os.getenv("LLM_PROVIDER",  "groq")
-LLM_MODEL     = os.getenv("LLM_MODEL",     "groq/compound-mini")
+LLM_PROVIDER   = os.getenv("LLM_PROVIDER",  "groq")
+LLM_MODEL      = os.getenv("LLM_MODEL",     "llama-3.3-70b-versatile")
 LLM_MAX_TOKENS = int(os.getenv("LLM_MAX_TOKENS", "1024"))
 
 # ── Context injection template ─────────────────────────────────────────────────
@@ -57,7 +57,11 @@ def generate(
         Provider-specific exceptions on API errors (let them propagate so the
         caller — the pipeline — can handle them).
     """
-    resolved_model      = model or LLM_MODEL
+    # Re-read .env on every call so key changes take effect without restart
+    load_dotenv(override=True)
+    provider   = os.getenv("LLM_PROVIDER",  LLM_PROVIDER).lower()
+    live_model = model or os.getenv("LLM_MODEL", LLM_MODEL)
+    resolved_model      = live_model
     resolved_max_tokens = max_tokens or LLM_MAX_TOKENS
 
     # Inject context into the user message if provided
@@ -66,15 +70,13 @@ def generate(
     else:
         user_message = user
 
-    provider = LLM_PROVIDER.lower()
-
     if provider == "anthropic":
         return _call_anthropic(system, user_message, resolved_model, resolved_max_tokens)
     elif provider in ("openai", "groq"):
-        return _call_openai_compat(system, user_message, resolved_model, resolved_max_tokens)
+        return _call_openai_compat(system, user_message, resolved_model, resolved_max_tokens, provider)
     else:
         raise RuntimeError(
-            f"Unknown LLM_PROVIDER='{LLM_PROVIDER}'. "
+            f"Unknown LLM_PROVIDER='{provider}'. "
             "Set to 'anthropic', 'openai', or 'groq'."
         )
 
@@ -101,14 +103,15 @@ def _call_anthropic(system: str, user: str, model: str, max_tokens: int) -> str:
     return message.content[0].text
 
 
-def _call_openai_compat(system: str, user: str, model: str, max_tokens: int) -> str:
+def _call_openai_compat(system: str, user: str, model: str, max_tokens: int, provider: str = "groq") -> str:
     """Handles both OpenAI and Groq (which uses the OpenAI-compatible API)."""
     try:
         from openai import OpenAI
     except ImportError:
         raise RuntimeError("openai package not installed. Run: pip install openai")
 
-    if LLM_PROVIDER.lower() == "groq":
+    load_dotenv(override=True)
+    if provider == "groq":
         api_key  = os.getenv("GROQ_API_KEY")
         base_url = "https://api.groq.com/openai/v1"
         if not api_key:

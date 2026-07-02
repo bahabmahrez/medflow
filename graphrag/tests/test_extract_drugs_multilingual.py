@@ -63,3 +63,31 @@ def test_extract_drugs_arabic_normalization(mock_resolve):
     drugs = extract_drugs("هل يمكنني تناول باراسيتامول؟")
     assert drugs == ["paracetamol"]
 
+
+@patch("graphrag._drug_extraction.resolve_drug_name")
+def test_extract_drugs_french_contracted_article(mock_resolve):
+    """'l'amiodarone' must split on apostrophe; 'l' filtered, 'amiodarone' resolved."""
+    mapping = {"amiodarone": "amiodarone"}
+    mock_resolve.side_effect = _fake_resolve_factory(mapping)
+
+    from graphrag.pipeline import extract_drugs
+
+    # Both ASCII apostrophe (U+0027) and curly quote (U+2019) variants
+    assert extract_drugs("La warfarine peut-elle être associée à l'amiodarone ?") == ["amiodarone"]
+    assert extract_drugs("Peut-on associer l’amiodarone à un autre traitement ?") == ["amiodarone"]
+
+
+@patch("graphrag._drug_extraction.resolve_drug_name")
+def test_extract_drugs_french_feminine_suffix(mock_resolve):
+    """French feminine forms (warfarine, aspirine) must resolve to their INN via suffix stripping."""
+    mapping = {
+        "warfarin": "warfarin",
+        "aspirin":  "aspirin",
+    }
+    mock_resolve.side_effect = _fake_resolve_factory(mapping)
+
+    from graphrag.pipeline import extract_drugs
+
+    assert "warfarin" in extract_drugs("La warfarine est-elle compatible avec l'aspirine ?")
+    assert "aspirin"  in extract_drugs("La warfarine est-elle compatible avec l'aspirine ?")
+

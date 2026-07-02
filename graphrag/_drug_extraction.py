@@ -58,6 +58,8 @@ def _normalize_ar(text: str) -> str:
     # Strip tatweel and diacritics-ish marks
     t = t.replace("ـ", "")
     t = re.sub(r"[\u064B-\u065F\u0670\u06D6-\u06ED]", "", t)
+    # Strip Arabic punctuation: question mark, comma, semicolon (U+060C, U+061B, U+061F)
+    t = re.sub(r"[،؛؟۔]", "", t)
     return t
 
 
@@ -82,7 +84,11 @@ def _tokenize(text: str) -> list[str]:
     if not text:
         return []
 
-    tokens = re.findall(r"[A-Za-zÀ-ÖØ-öø-ÿ'-]+|[\u0600-\u06FF]+(?:-[\u0600-\u06FF]+)?", text)
+    # Split French contracted articles: "l'amiodarone" -> "l amiodarone"
+    # Handles straight apostrophe (U+0027) and curly quote (U+2019).
+    text = re.sub(r"['’ʼ]", " ", text)
+
+    tokens = re.findall(r"[A-Za-zÀ-ÖØ-öø-ÿ-]+|[\u0600-\u06FF]+(?:-[\u0600-\u06FF]+)?", text)
     out: list[str] = []
     for tok in tokens:
         tok = tok.strip()
@@ -93,7 +99,7 @@ def _tokenize(text: str) -> list[str]:
             tok = _normalize_ar(tok)
         else:
             tok = _normalize_fr_token(tok)
-        tok = tok.strip("'\"")
+        tok = tok.strip("'\"-")
         if tok:
             out.append(tok.lower())
     return out
@@ -172,6 +178,29 @@ def _methodify_result(res: dict, method: str, confidence: float) -> dict:
         "confidence": confidence,
     }
 
+
+
+
+def _french_stem_variants(tok: str) -> list[str]:
+    """Return INN candidates from French morphological forms.
+
+    French drug names often add a feminine 'e' or plural 's'/'es' to the INN:
+      warfarine  -> warfarin
+      aspirines  -> aspirin
+    Only tried when the token itself did not resolve directly.
+    Minimum token length > 5 avoids stripping from short common words.
+    """
+    if len(tok) <= 5:
+        return []
+    if tok.endswith("ines") and len(tok) > 7:   # e.g. codéines -> codéine, codein
+        return [tok[:-1], tok[:-4] + "in"]
+    if tok.endswith("ine") and len(tok) > 6:     # e.g. aspirine -> aspirin
+        return [tok[:-1]]
+    if tok.endswith("es") and len(tok) > 6:      # e.g. warfarines -> warfarine -> warfarin
+        return [tok[:-1], tok[:-2]]
+    if tok.endswith("e"):                         # e.g. warfarine -> warfarin
+        return [tok[:-1]]
+    return []
 
 def extract_drugs_with_trace(question: str) -> list[dict]:
     # Ensure Arabic tokens are normalized consistently (tests patch
@@ -301,6 +330,19 @@ def extract_drugs_with_trace(question: str) -> list[dict]:
         if r.get("status") == "found":
             inn = r["data"]["canonical"]
             maybe_add(_methodify_result(r, method="multilingue", confidence=0.9), inn, "multilingue", 0.9)
+
+    # French morphological variants: "warfarine" -> "warfarin"
+    for tok in tokens:
+        if any(d.get("inn") and tok.startswith(d["inn"][:4]) for d in found_by_inn.values()):
+            continue  # likely already found via another form
+        for variant in _french_stem_variants(tok):
+            r = _strict_resolve(variant)
+            if r.get("status") == "found":
+                inn = r["data"]["canonical"]
+                maybe_add(
+                    _methodify_result(r, method="french_suffix", confidence=0.9),
+                    inn, "french_suffix", 0.9,
+                )
 
     # Return stable order by confidence desc then inn name
     return sorted(found_by_inn.values(), key=lambda x: (-x.get("confidence", 0.0), x["inn"]))

@@ -30,24 +30,20 @@ def test_system_prompt_has_severity_rules():
 
 
 def test_unknown_provider_raises():
-    import llm.provider as mod
-    original = mod.LLM_PROVIDER
-    try:
-        mod.LLM_PROVIDER = "fictional_provider"
-        with pytest.raises(RuntimeError, match="Unknown LLM_PROVIDER"):
-            mod.generate("system", "user")
-    finally:
-        mod.LLM_PROVIDER = original
+    with patch("llm.provider.load_dotenv"):
+        with patch.dict(os.environ, {"LLM_PROVIDER": "fictional_provider"}):
+            with pytest.raises(RuntimeError, match="Unknown LLM_PROVIDER"):
+                generate("system", "user")
 
 
 def test_missing_api_key_raises():
-    saved = os.environ.pop("ANTHROPIC_API_KEY", None)
-    try:
-        with pytest.raises(RuntimeError, match="ANTHROPIC_API_KEY"):
-            generate("system", "user")
-    finally:
-        if saved is not None:
-            os.environ["ANTHROPIC_API_KEY"] = saved
+    env = {k: v for k, v in os.environ.items()
+           if k not in ("ANTHROPIC_API_KEY", "GROQ_API_KEY", "OPENAI_API_KEY")}
+    env["LLM_PROVIDER"] = "anthropic"
+    with patch("llm.provider.load_dotenv"):
+        with patch.dict(os.environ, env, clear=True):
+            with pytest.raises(RuntimeError, match="ANTHROPIC_API_KEY"):
+                generate("system", "user")
 
 
 def test_context_injected_into_user_message():
@@ -67,9 +63,10 @@ def test_no_context_passes_question_directly():
         captured["user"] = user
         return "mocked"
 
-    with patch("llm.provider._call_anthropic", side_effect=fake_anthropic):
-        with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "test-key"}):
-            generate("sys", "plain question")
+    with patch("llm.provider.load_dotenv"):
+        with patch("llm.provider._call_anthropic", side_effect=fake_anthropic):
+            with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "test-key", "LLM_PROVIDER": "anthropic"}):
+                generate("sys", "plain question")
     assert captured["user"] == "plain question"
 
 
@@ -80,9 +77,10 @@ def test_context_wraps_message():
         captured["user"] = user
         return "mocked"
 
-    with patch("llm.provider._call_anthropic", side_effect=fake_anthropic):
-        with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "test-key"}):
-            generate("sys", "Is this safe?", context="DDI data here")
+    with patch("llm.provider.load_dotenv"):
+        with patch("llm.provider._call_anthropic", side_effect=fake_anthropic):
+            with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "test-key", "LLM_PROVIDER": "anthropic"}):
+                generate("sys", "Is this safe?", context="DDI data here")
     assert "DDI data here" in captured["user"]
     assert "Is this safe?" in captured["user"]
 
