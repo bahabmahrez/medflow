@@ -12,6 +12,7 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, field_validator
 
 from .pipeline import ask
+from agent import run_agent
 
 app = FastAPI(
     title="MedFlow GraphRAG API",
@@ -50,6 +51,24 @@ class AskResponse(BaseModel):
     error:          str | None = None
 
 
+class AgentAskRequest(BaseModel):
+    question:        str
+    patient_context: dict | None = None
+    max_iterations:  int = 8
+
+    @field_validator("question")
+    @classmethod
+    def question_not_empty(cls, v: str) -> str:
+        if not v or not v.strip():
+            raise ValueError("question must not be empty")
+        return v.strip()
+
+
+class AgentAskResponse(BaseModel):
+    final_answer: str
+    trace:        dict
+
+
 # ── Endpoints ──────────────────────────────────────────────────────────────────
 
 @app.get("/health")
@@ -71,3 +90,16 @@ def ask_endpoint(req: AskRequest) -> AskResponse:
     if result.get("error") and not result.get("answer"):
         raise HTTPException(status_code=503, detail=result["error"])
     return AskResponse(**result)
+
+
+@app.post("/agent/ask", response_model=AgentAskResponse)
+def agent_ask_endpoint(req: AgentAskRequest) -> AgentAskResponse:
+    try:
+        result = run_agent(
+            req.question,
+            patient_context=req.patient_context,
+            max_iterations=req.max_iterations,
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+    return AgentAskResponse(**result)

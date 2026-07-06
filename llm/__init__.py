@@ -10,7 +10,7 @@ Usage:
 """
 import os as _os
 
-from .provider import generate, LLM_PROVIDER, LLM_MODEL
+from .provider import generate, generate_with_tools, LLM_PROVIDER, LLM_MODEL
 
 _PROMPT_PATH = _os.path.join(_os.path.dirname(__file__), "system_prompt.txt")
 
@@ -21,4 +21,4 @@ def load_system_prompt() -> str:
         return f.read()
 
 
-__all__ = ["generate", "load_system_prompt", "LLM_PROVIDER", "LLM_MODEL"]
+__all__ = ["generate", "generate_with_tools", "load_system_prompt", "LLM_PROVIDER", "LLM_MODEL"]

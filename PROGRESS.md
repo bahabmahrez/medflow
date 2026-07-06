@@ -1,7 +1,7 @@
 # MedFlow — Project Progress Log
 
 > Running log of everything built, fixed, and decided. Updated after every work session.
-> Owner: PM (Houssem). Last updated: 2026-06-24.
+> Owner: PM (Houssem). Last updated: 2026-07-06.
 
 ---
 
@@ -236,3 +236,150 @@ Trap verification scripts accept both values. Documented in `/docs/severity_disa
 - Kardegic (aspirin) and Depakine (valproate) brand names not in `drugs` table — flagged in stress4 as WARN
 - DA41 disease_concept has null `snomed_code` (acceptable — duplicate of K27)
 - `load_drugbank.py` named in teacher's spec — equivalent data loaded via multiple scripts; worth creating a wrapper script for clarity
+
+---
+
+## Week 4 — From Chatbot to Agent (Tool-Calling)
+
+### What changed
+
+Week 3's `graphrag.ask()` was a **fixed pipeline**: Python `if`-branches decided
+which of the 10 query functions ran, based on which kwargs the *caller* passed
+in (`conditions=`, `allergies=`, etc.). The LLM only ever explained data that
+was already assembled for it — it never chose what to look up.
+
+Week 4 flips that control to the model. A new `agent/` package gives the LLM
+the full list of 10 query functions as callable tools; the model decides which
+to call, with what arguments, reads the results, and can call more tools
+before answering — up to a hard iteration cap. This is purely additive: **no
+Week 3 file was modified** (`llm/provider.py::generate()`, `llm/system_prompt.txt`,
+`graphrag/pipeline.py::ask()`, and the existing `/ask` endpoint are all
+untouched, and all 82 Week 3 unit tests still pass unmodified).
+
+### Milestone 1 — Tools
+
+- `llm/provider.py` gained a new sibling function, `generate_with_tools()`,
+  alongside the existing `generate()`. It takes/returns provider-agnostic,
+  OpenAI-wire-format structures (`messages` list, `tools` list of
+  `{name, description, parameters}` dicts) and normalizes the response to
+  `{content, stop_reason, tool_calls}` regardless of provider.
+  - **Groq / OpenAI-compatible branch** (`_call_openai_compat_with_tools`) —
+    the live path in this environment (`.env` has `LLM_PROVIDER=groq`, no
+    Anthropic key). Near-zero translation since the tool schema is already
+    OpenAI's native shape.
+  - **Anthropic branch** (`_call_anthropic_with_tools`) — full translation
+    shim (`_to_anthropic_tools`, `_to_anthropic_messages`) converting the
+    canonical OpenAI-wire history into Anthropic's content-block format
+    (tool results become a `role:"user"` message with a `tool_result` block —
+    the one non-obvious part). **Only verified with a mocked Anthropic
+    client** — there's no `ANTHROPIC_API_KEY` configured here, so this path
+    has never run live.
+- `agent/tools.py` — the 10 query functions wrapped as tool schemas with
+  precise, LLM-facing "when to use this" descriptions (not just restated
+  docstrings), a `TOOL_REGISTRY` name→function map, and a `call_tool()` safe
+  dispatcher that never raises: unknown tool name, missing required
+  argument, malformed JSON arguments, or an exception inside the underlying
+  query function all become a normal `{"status":"error",...}` result instead
+  of crashing the loop.
+
+### Milestone 2 — Agent loop
+
+- `agent/loop.py::run_agent(question, *, patient_context=None, max_iterations=8)`
+  — sends the question (plus an optional plain-text patient-context block —
+  informational only, the model still has to decide to act on it) and the
+  full tool list to the model; executes whatever tools it requests; feeds
+  results back; repeats until a final answer or the iteration cap. If the cap
+  is hit, one forced call with no tools makes the model synthesize an answer
+  from whatever was already gathered, instead of truncating silently.
+- `agent/trace.py` — every step logged: the model's text for that turn, every
+  tool call requested (name + arguments), and every tool execution (result,
+  status, duration). `pretty_print()` renders a human-readable trace for
+  demos/debugging.
+
+### Milestone 3 — Identity and guardrails
+
+- `agent/system_prompt_addendum.txt` + `agent/prompts.py` — the agent's
+  system prompt is Week 3's existing 8 safety rules (`llm/system_prompt.txt`,
+  loaded via `llm.load_system_prompt()`, unchanged) plus a new addendum
+  layered on top at runtime (not a duplicated copy on disk, so the two can
+  never drift apart). The addendum covers: agent identity (pharmacy-safety
+  assistant, not a diagnostician), tool-use rules (never pass an argument
+  value the pharmacist didn't state, verify unfamiliar names first),
+  reporting rules (never invent a finding for an empty/failed tool result),
+  severity-first-and-present-don't-command, refusal boundaries (diagnosis,
+  unsupported dosing populations, forced binary answers, ambiguous
+  references), and anti-tool-misuse (never call a tool with a drug that
+  wasn't mentioned).
+
+### Milestone 4 — Evaluation (25 scenarios)
+
+New `evaluation/agent_eval/` package, parallel to Week 3's `evaluation/llm_eval/`:
+
+- **10 multi-tool** cases, grounded in real trap patients from
+  `patients/synthetic/load_patients_graph.py` (`warfarin_aspirin`,
+  `metformin_ckd`, `simvastatin_cyp3a4`, `penicillin_allergy`,
+  `polypharmacy_elderly`, `digoxin_amiodarone`, etc.), run as natural
+  pharmacist questions, plus 2 non-trap cases targeting `get_drug_profile`
+  and `get_drugs_by_class` specifically (no trap scenario naturally exercises
+  those two).
+- **7 ambiguity** cases — a dose with no unit, a vague drug-class reference,
+  a patient reference with no data, an allergy mentioned with no candidate
+  drug named, etc. Scored on whether the final answer reads as a clarifying
+  question rather than a confident assertion.
+- **8 adversarial** cases — 6 of Week 3's Tier-3 adversarial cases (leading
+  question, authority claim, unknown drug, out-of-scope, hallucination trap,
+  dose fishing) replayed against the agent, plus 2 new tool-misuse cases:
+  an unresolvable drug in a multi-drug list must be surfaced (not silently
+  dropped or fabricated), and a training-data-plausible but never-mentioned
+  drug (e.g. "aspirin" alongside warfarin) must never appear in any tool
+  call's arguments.
+- `runner.py::score_agent()` scores each case on: whether at least one
+  *acceptable* set of tools was called (an OR of tool-name sets, since
+  `full_prescription_check` legitimately substitutes for several granular
+  tools — scoring doesn't overfit to one arbitrary strategy), required/
+  forbidden answer phrases, the clarifying-question heuristic, and a scan of
+  every logged tool argument for forbidden values.
+- `test_coverage.py` — a meta-test asserting the 25-case suite is capable of
+  exercising all 10 registered tools (static check) plus a `@pytest.mark.live`
+  version asserting all 10 are *actually* invoked across real runs.
+
+### Also touched (additive only)
+
+- `graphrag/server.py` — new `POST /agent/ask` endpoint (separate
+  request/response models, takes `patient_context` instead of `/ask`'s flat
+  kwargs, returns the full trace). Existing `/ask` and `/health` untouched.
+- `requirements.txt` — added `openai>=1.0` explicitly (was already installed
+  and used by the Groq path, but never declared; Week 4 makes that path
+  load-bearing for every live test here).
+- `DEMO_GUIDE.md` — new sections 10-12 (testing `/agent/ask`, running the
+  25-case agent eval suite, running the full Weeks 1-4 unit test suite).
+
+### Test results
+
+```
+python -m pytest -m "not live" -q
+125 passed, 61 deselected
+```
+= 82 pre-existing Week 1-3 tests (unmodified) + 43 new Week 4 tests
+(`agent/tests/`: 15, `llm/tests/test_provider_tools.py`: 8,
+`evaluation/agent_eval/` unit tests: ~20), verified with Neo4j + Postgres
+both running via `docker compose up -d`.
+
+### Known limitations / open issues
+
+- The Anthropic tool-calling path (`_call_anthropic_with_tools` and its
+  translation shim) is unit-tested with mocks only — never exercised live,
+  since this environment has no `ANTHROPIC_API_KEY`. Worth a live check if
+  the project ever switches `LLM_PROVIDER` to `anthropic`.
+- The 25-case `evaluation/agent_eval` suite has not yet been run live against
+  the real Groq API (`python -m evaluation.agent_eval.runner`) — the mocked
+  unit tests confirm the scoring logic is correct, but real pass/fail rates
+  against the actual model are still unmeasured.
+- A pre-existing (Week 3, not introduced here) gap was found while
+  investigating a test hang: `graphrag/tests/test_pipeline.py`'s
+  `test_extract_drugs_*` tests patch `graphrag.pipeline.resolve_drug_name`,
+  but `extract_drugs()` also calls a second, independently-imported
+  `resolve_drug_name` reference inside `graphrag/_drug_extraction.py` that
+  the patch doesn't intercept — those tests silently depend on a live Neo4j
+  connection rather than being fully mocked. Not fixed here (out of Week 4's
+  additive-only scope) but worth a follow-up.

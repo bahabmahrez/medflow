@@ -163,13 +163,110 @@ python -m evaluation.llm_eval.runner --tier T3
 
 ---
 
-## 9. Lancer toute la suite de tests unitaires (sans clé API)
+## 9. Lancer toute la suite de tests unitaires (Semaines 1-3, sans clé API)
 
 ```powershell
 python -m pytest query\tests\ llm\tests\ graphrag\tests\ evaluation\llm_eval\ -q -m "not live"
 ```
 
-**Attendu : 82 tests passés.** Ceux-ci tournent sans clé API, sans Docker, en moins de 10 secondes.
+**Attendu : 82 tests passés.** ⚠️ Ces tests nécessitent Neo4j démarré (étape 2) — plusieurs tests de `query\tests\` et `graphrag\tests\` font des appels réels au graphe (non mockés). Sans Neo4j lancé, ils restent bloqués au lieu d'échouer proprement.
+
+---
+
+## 10. Tester l'agent (Semaine 4 — tool-calling)
+
+Le pipeline `/ask` de la Semaine 3 décidait lui-même, en Python, quelles fonctions
+de requête lancer. Le nouvel agent (`agent/`) inverse ce contrôle : c'est le LLM
+qui choisit, parmi les 10 outils enregistrés, lesquels appeler et avec quels
+arguments — en plusieurs tours si besoin — avant de répondre.
+
+Le serveur (étape 6) doit déjà tourner. **Dans le second terminal :**
+
+```powershell
+$body = @{
+    question = "New prescription is clarithromycin for a patient already on simvastatin and warfarin. Anything I should worry about?"
+} | ConvertTo-Json
+Invoke-RestMethod -Uri "http://127.0.0.1:8000/agent/ask" -Method Post -Body $body -ContentType "application/json"
+```
+
+Réponse attendue (structure) :
+```json
+{
+  "final_answer": "Two concerns. The serious one: clarithromycin blocks the enzyme...",
+  "trace": {
+    "question": "...",
+    "iterations": 2,
+    "stopped_reason": "final_answer",
+    "steps": [
+      { "step": 1, "tool_calls_requested": [
+          {"name": "detect_pairwise_interactions", "arguments": {"drug_list": ["clarithromycin","simvastatin","warfarin"]}}
+        ],
+        "tool_executions": [ { "name": "detect_pairwise_interactions", "status": "found", ... } ]
+      },
+      { "step": 2, "tool_calls_requested": [
+          {"name": "detect_cyp_competition", "arguments": {"drug_list": ["clarithromycin","simvastatin","warfarin"]}}
+        ],
+        "tool_executions": [ { "name": "detect_cyp_competition", "status": "found", ... } ]
+      }
+    ]
+  }
+}
+```
+
+`trace.steps` montre exactement quel outil le modèle a choisi, avec quels
+arguments, et ce qui est revenu — c'est ce qui prouve que l'agent raisonne
+correctement (et pas seulement sa réponse finale).
+
+Tu peux aussi inspecter une trace lisible en Python :
+
+```powershell
+python -c "
+from agent import run_agent, pretty_print
+r = run_agent('Can I prescribe amiodarone to a patient already taking warfarin?')
+print(pretty_print(r['trace']))
+"
+```
+
+---
+
+## 11. Lancer la suite d'évaluation de l'agent (25 scénarios)
+
+```powershell
+python -m evaluation.agent_eval.runner
+```
+
+Résultat attendu :
+```
+Multi-tool  : 10/10  (100%)
+Ambiguity   :  x/7   ( x%)
+Adversarial :  x/8   ( x%)
+OVERALL     : xx/25  (xx%)
+```
+
+Pour ne lancer qu'un seul tier :
+```powershell
+python -m evaluation.agent_eval.runner --tier ambiguity
+python -m evaluation.agent_eval.runner --tier adversarial
+```
+
+Les cas `ambiguity` vérifient que l'agent pose une question de clarification au
+lieu de deviner (dose sans unité, classe de médicament vague, patient sans
+données). Les cas `adversarial` incluent les 6 pièges de la Semaine 3
+(question orientée, autorité revendiquée, médicament inventé, hors périmètre)
+rejoués contre l'agent, plus 2 nouveaux cas de "tool misuse" : l'agent ne doit
+jamais appeler un outil avec un médicament halluciné, ni inventer un résultat
+quand un outil ne retourne rien.
+
+---
+
+## 12. Lancer toute la suite de tests unitaires (Semaines 1-4, sans clé API)
+
+```powershell
+python -m pytest query\tests\ llm\tests\ graphrag\tests\ evaluation\llm_eval\ agent\tests\ evaluation\agent_eval\ -q -m "not live"
+```
+
+**Attendu : 125 tests passés** (82 des Semaines 1-3 + 43 de la Semaine 4).
+Nécessite Neo4j démarré, aucune clé API.
 
 ---
 
@@ -184,3 +281,6 @@ python -m pytest query\tests\ llm\tests\ graphrag\tests\ evaluation\llm_eval\ -q
 7. Dans un second terminal : tester `/health` puis `/ask`
 8. `python -m evaluation.llm_eval.runner`
 9. `python -m pytest query\tests\ llm\tests\ graphrag\tests\ evaluation\llm_eval\ -q -m "not live"`
+10. Tester `/agent/ask` (agent tool-calling, Semaine 4)
+11. `python -m evaluation.agent_eval.runner`
+12. `python -m pytest query\tests\ llm\tests\ graphrag\tests\ evaluation\llm_eval\ agent\tests\ evaluation\agent_eval\ -q -m "not live"`
