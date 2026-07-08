@@ -82,6 +82,38 @@ def test_iteration_cap_forces_final_answer_with_no_tools():
     assert call_log[-1] == []
 
 
+def test_provider_error_does_not_crash_and_produces_graceful_final_answer():
+    """
+    Observed live with Groq/Llama: the model can emit a malformed tool call
+    (e.g. the string "null" for an unset optional number) that the provider
+    rejects server-side with an exception before generate_with_tools ever
+    returns a normal response. run_agent must never raise for this.
+    """
+    with patch("agent.loop.generate_with_tools", side_effect=RuntimeError("400 tool_use_failed: bad schema")):
+        result = run_agent("Is metformin an appropriate dose for this patient?")
+
+    trace = result["trace"]
+    assert trace["stopped_reason"] == "llm_error"
+    assert "malformed tool request" in result["final_answer"]
+    assert "LLM call failed" in trace["steps"][0]["model_content"]
+
+
+def test_provider_error_on_forced_final_call_also_handled_gracefully():
+    infinite_tool_calls = _tool_call("call_x", "resolve_drug_name", {"name": "warfarin"})
+
+    def fake_generate(messages, tools, **kwargs):
+        if tools == []:
+            raise RuntimeError("400 tool_use_failed: bad schema")
+        return infinite_tool_calls
+
+    with patch("agent.loop.generate_with_tools", side_effect=fake_generate):
+        with patch("agent.loop.call_tool", return_value={"status": "found", "data": {}, "message": "ok"}):
+            result = run_agent("Ambiguous question", max_iterations=2)
+
+    assert result["trace"]["stopped_reason"] == "llm_error"
+    assert "provider error" in result["final_answer"]
+
+
 def test_patient_context_rendered_into_first_user_message():
     with patch("agent.loop.generate_with_tools", return_value=_final("ok")) as mocked:
         run_agent("Review this prescription", patient_context={"allergies": ["penicillin"], "age": 78})

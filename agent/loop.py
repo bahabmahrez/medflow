@@ -20,6 +20,23 @@ def _render_patient_context(patient_context: dict) -> str:
     return "\n".join(lines)
 
 
+def _safe_generate_with_tools(messages: list[dict], tools: list[dict], model: str | None) -> tuple[dict | None, str | None]:
+    """
+    Wrap generate_with_tools so a provider-level failure never crashes the loop.
+
+    Some providers (observed with Groq/Llama tool-calling) validate the
+    model's tool-call arguments against our JSON schema server-side and
+    raise a 400 error instead of returning a malformed tool call for us to
+    handle — e.g. the model emits the string "null" for an unset optional
+    number instead of omitting the key. That happens before generate_with_tools
+    can normalize anything, so it must be caught here, one level up.
+    """
+    try:
+        return generate_with_tools(messages, tools, model=model), None
+    except Exception as exc:
+        return None, str(exc)
+
+
 def _assistant_message(response: dict) -> dict:
     """Build the OpenAI-wire assistant turn to append to conversation history."""
     msg = {"role": "assistant", "content": response["content"] or None}
@@ -64,7 +81,17 @@ def run_agent(
 
     while iteration < max_iterations:
         iteration += 1
-        response = generate_with_tools(messages, TOOLS, model=model)
+        response, error = _safe_generate_with_tools(messages, TOOLS, model)
+        if error:
+            trace["steps"].append(new_step(iteration, f"[LLM call failed: {error}]", []))
+            final_answer = (
+                "I wasn't able to complete this analysis — the model produced a "
+                "malformed tool request. Please rephrase the question or provide "
+                "the missing values explicitly."
+            )
+            stopped_reason = "llm_error"
+            break
+
         messages.append(_assistant_message(response))
 
         step = new_step(iteration, response["content"], response["tool_calls"])
@@ -90,13 +117,17 @@ def run_agent(
         # Iteration cap hit — force one last call with no tools so the model
         # synthesizes an answer from whatever has already been gathered,
         # instead of silently truncating.
-        response = generate_with_tools(messages, tools=[], model=model)
-        messages.append(_assistant_message(response))
+        response, error = _safe_generate_with_tools(messages, [], model)
         iteration += 1
-        step = new_step(iteration, response["content"], [])
-        trace["steps"].append(step)
-        final_answer = response["content"]
-        stopped_reason = "max_iterations_reached"
+        if error:
+            trace["steps"].append(new_step(iteration, f"[LLM call failed: {error}]", []))
+            final_answer = "I wasn't able to synthesize a final answer due to a model/provider error."
+            stopped_reason = "llm_error"
+        else:
+            messages.append(_assistant_message(response))
+            trace["steps"].append(new_step(iteration, response["content"], []))
+            final_answer = response["content"]
+            stopped_reason = "max_iterations_reached"
 
     trace["final_answer"] = final_answer
     trace["iterations"] = iteration

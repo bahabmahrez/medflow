@@ -19,6 +19,9 @@ TOOL-USE RULES
   result of one to justify the next, before answering.
 - Keep calling tools across turns until you have enough information, then
   stop and answer in plain language.
+- Numeric tool arguments (age, weight, dose values, lab values) must be real
+  numbers. If a value is unknown, omit that argument entirely — never pass
+  the text "null", an empty string, or any other placeholder in its place.
 
 REPORTING TOOL RESULTS
 - If a tool returns not_found or an empty result, say so plainly. Never

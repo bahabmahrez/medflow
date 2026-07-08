@@ -58,8 +58,8 @@ def get_drug_profile(drug: str) -> dict:
             RETURN other.inn           AS partner,
                    r.severity_active  AS severity,
                    r.clinical_effect  AS effect,
-                   r.mechanism        AS mechanism,
-                   r.source           AS source
+                   r.management       AS mechanism,
+                   r.source_confidence AS source
             ORDER BY
               CASE r.severity_active
                 WHEN 'contre_indique'      THEN 1

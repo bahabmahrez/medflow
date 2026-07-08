@@ -68,8 +68,8 @@ def detect_pairwise_interactions(drug_list: list[str]) -> dict:
                 RETURN a.inn AS drug_a, b.inn AS drug_b,
                        r.severity_active AS severity,
                        r.clinical_effect AS effect,
-                       r.mechanism       AS mechanism,
-                       r.source          AS source
+                       r.management      AS mechanism,
+                       r.source_confidence AS source
                 """,
                 inn_a=inn_a, inn_b=inn_b,
             )
