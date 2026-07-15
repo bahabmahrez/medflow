@@ -276,6 +276,72 @@ Nécessite Neo4j démarré, aucune clé API.
 
 ---
 
+## 13. Serveur MCP (Semaine 5 — Model Context Protocol)
+
+Le serveur MCP expose les 10 fonctions de requête comme outils MCP, accessibles
+depuis n'importe quel client MCP (Claude Desktop, MCP Inspector, etc.).
+
+**Installer les dépendances :**
+```powershell
+pip install "mcp>=1.25" "mcp[cli]>=1.25"
+```
+
+**Tester avec le MCP Inspector (debugging) :**
+```powershell
+mcp dev medflow_mcp/server.py
+```
+Ouvre http://localhost:5173 pour appeler les outils dans l'interface web.
+
+**Lancer le serveur en mode stdio (pour Claude Desktop) :**
+```powershell
+mcp run medflow_mcp/server.py
+```
+
+**Configurer Claude Desktop :**
+
+Ajouter dans `%APPDATA%\Claude\claude_desktop_config.json` :
+```json
+{
+  "mcpServers": {
+    "MedFlow": {
+      "command": "mcp",
+      "args": ["run", "medflow_mcp/server.py"],
+      "cwd": "C:\\Users\\bahab\\OneDrive\\Desktop\\medflow"
+    }
+  }
+}
+```
+
+Redémarrer Claude Desktop. Les 10 outils MedFlow apparaîtront dans la barre
+latérale (icône 🔧). Claude peut maintenant interroger le graphe de connaissances
+directement.
+
+**Outils disponibles :**
+| Outil | Description |
+|---|---|
+| `resolve_drug_name_tool` | Résoudre un nom (INN, marque) en INN canonique |
+| `get_drug_profile_tool` | Profil complet d'un médicament |
+| `detect_pairwise_interactions_tool` | Interactions directes entre 2+ médicaments |
+| `detect_cyp_competition_tool` | Interactions médiées par CYP450 |
+| `check_contraindications_tool` | Contre-indications vs conditions patient |
+| `check_allergy_conflict_tool` | Conflits allergie + cross-réactivité |
+| `check_therapeutic_duplication_tool` | Détection de thérapie en double |
+| `check_dose_appropriateness_tool` | Ajustement de dose (âge, reins, foie) |
+| `get_drugs_by_class_tool` | Lister les médicaments d'une classe |
+| `full_prescription_check_tool` | Vérification complète en un appel |
+
+**Ressources MCP :**
+- `medflow://system-prompt` — Prompt système de l'agent
+- `medflow://tools` — Liste des outils disponibles
+- `medflow://graph-stats` — Statistiques du graphe Neo4j
+
+**Prompts MCP :**
+- `evaluate_prescription` — Structurer une évaluation de prescription
+- `drug_info` — Consulter le profil d'un médicament
+- `check_interactions` — Vérifier les interactions entre médicaments
+
+---
+
 ## Résumé — ordre d'exécution complet
 
 1. `docker compose up -d`
@@ -290,3 +356,4 @@ Nécessite Neo4j démarré, aucune clé API.
 10. Tester `/agent/ask` (agent tool-calling, Semaine 4)
 11. `python -m evaluation.agent_eval.runner`
 12. `python -m pytest query\tests\ llm\tests\ graphrag\tests\ evaluation\llm_eval\ agent\tests\ evaluation\agent_eval\ -q -m "not live"`
+13. Tester le serveur MCP (`mcp dev medflow_mcp/server.py` ou configurer Claude Desktop)
