@@ -299,16 +299,22 @@ mcp run medflow_mcp/server.py
 
 **Configurer Claude Desktop :**
 
-Ajouter dans `%APPDATA%\Claude\claude_desktop_config.json` :
+Le fichier de config pour la version Windows Store est à :
+```
+C:\Users\bahab\AppData\Local\Packages\Claude_pzs8sxrjxfjjc\LocalCache\Roaming\Claude\claude_desktop_config.json
+```
+
+Ajouter la clé `mcpServers` au début du fichier :
 ```json
 {
   "mcpServers": {
     "MedFlow": {
-      "command": "mcp",
-      "args": ["run", "medflow_mcp/server.py"],
+      "command": "C:\\Users\\bahab\\OneDrive\\Desktop\\medflow\\.venv\\Scripts\\python.exe",
+      "args": ["C:\\Users\\bahab\\OneDrive\\Desktop\\medflow\\medflow_mcp\\server.py"],
       "cwd": "C:\\Users\\bahab\\OneDrive\\Desktop\\medflow"
     }
-  }
+  },
+  ...existing preferences...
 }
 ```
 
