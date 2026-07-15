@@ -8,3 +8,4 @@ venv/
 knowledge_base/sources/dataset/*.csv
 knowledge_base/sources/*.zip
 knowledge_base/sources.zip
+WEEK_PLANS

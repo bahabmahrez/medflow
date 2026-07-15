@@ -7,8 +7,10 @@ hardcoded.  Swapping to a different provider means changing LLM_PROVIDER and
 the relevant key; no other code changes.
 
 Supported providers (LLM_PROVIDER env var):
-  anthropic  — Claude via Anthropic SDK  (default)
-  openai     — GPT via OpenAI SDK        (set LLM_PROVIDER=openai)
+  openai     — OpenAI-compatible API     (set LLM_PROVIDER=openai)
+               This includes local Ollama — set OPENAI_BASE_URL to
+               http://localhost:11434/v1 and OPENAI_API_KEY to "ollama".
+  anthropic  — Claude via Anthropic SDK  (set LLM_PROVIDER=anthropic)
   groq       — Groq API (OpenAI-compat)  (set LLM_PROVIDER=groq)
 """
 import json
@@ -132,7 +134,7 @@ def _openai_client(provider: str):
             raise RuntimeError("GROQ_API_KEY environment variable not set")
     else:
         api_key  = os.getenv("OPENAI_API_KEY")
-        base_url = None
+        base_url = os.getenv("OPENAI_BASE_URL")  # None for real OpenAI; set for Ollama
         if not api_key:
             raise RuntimeError("OPENAI_API_KEY environment variable not set")
 

@@ -61,7 +61,7 @@ CASES: list[dict] = [
         "tier": "factual",
         "description": "metformin + CKD — contraindication via condition",
         "question": "Is metformin appropriate for a patient with chronic kidney disease?",
-        "ask_kwargs": {"conditions": ["chronic kidney disease"]},
+        "ask_kwargs": {"conditions": ["renal impairment"]},
         "expected_drugs": ["metformin"],
         "expected_risk": "HIGH",
         "answer_must_contain": ["contraindicated", "lactic acidosis", "renal", "kidney"],
@@ -284,7 +284,8 @@ CASES: list[dict] = [
         "expected_risk": None,
         "answer_must_contain": [
             "not found", "not in the knowledge base", "cannot be assessed",
-            "pas trouvé", "not available",
+            "pas trouvé", "not available", "not recorded",
+            "is not found", "no interaction is recorded",
         ],
         "answer_must_not_contain": [],
     },

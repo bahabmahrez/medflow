@@ -6,7 +6,8 @@ Usage:
     python -m evaluation.llm_eval.runner --tier T1    # factual only
     python -m evaluation.llm_eval.runner --tier T3    # adversarial only
 
-Requires ANTHROPIC_API_KEY and a running Neo4j instance.
+Requires a configured LLM provider (see .env — Ollama, Groq, or Anthropic)
+and a running Neo4j instance.
 """
 from __future__ import annotations
 

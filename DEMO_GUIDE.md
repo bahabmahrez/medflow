@@ -14,6 +14,12 @@ pip install -r requirements-graph.txt
 
 Vérifie que Docker Desktop est lancé (nécessaire pour PostgreSQL et Neo4j).
 
+**LLM local avec Ollama :** le projet utilise un modèle LLM local via Ollama au lieu de clés API externes. Voir `docs/ollama_setup.md` pour l'installation détaillée. En résumé :
+
+1. Installer Ollama depuis https://ollama.com
+2. Télécharger le modèle : `ollama pull qwen2.5:7b-instruct`
+3. Vérifier que le modèle est disponible : `ollama list`
+
 ---
 
 ## 2. Démarrer les bases de données
@@ -169,7 +175,7 @@ python -m evaluation.llm_eval.runner --tier T3
 python -m pytest query\tests\ llm\tests\ graphrag\tests\ evaluation\llm_eval\ -q -m "not live"
 ```
 
-**Attendu : 82 tests passés.** ⚠️ Ces tests nécessitent Neo4j démarré (étape 2) — plusieurs tests de `query\tests\` et `graphrag\tests\` font des appels réels au graphe (non mockés). Sans Neo4j lancé, ils restent bloqués au lieu d'échouer proprement.
+**Attendu : 82 tests passés.** Ces tests nécessitent Neo4j démarré (étape 2) — plusieurs tests de `query\tests\` et `graphrag\tests\` font des appels réels au graphe (non mockés). Sans Neo4j lancé, ils restent bloqués au lieu d'échouer proprement.
 
 ---
 

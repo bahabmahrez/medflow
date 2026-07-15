@@ -6,8 +6,8 @@ Usage:
     python -m evaluation.agent_eval.runner --tier multi_tool
     python -m evaluation.agent_eval.runner --tier adversarial
 
-Requires a configured LLM provider (GROQ_API_KEY or ANTHROPIC_API_KEY) and a
-running Neo4j instance.
+Requires a configured LLM provider (see .env — Ollama, Groq, or Anthropic)
+and a running Neo4j instance.
 """
 from __future__ import annotations
 
