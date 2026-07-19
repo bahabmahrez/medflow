@@ -86,7 +86,7 @@ CASES: list[dict] = [
         "ask_kwargs": {"active_meds": ["Tahor"]},
         "expected_drugs": ["atorvastatin"],
         "expected_risk": None,
-        "answer_must_contain": ["duplicate", "same drug", "already", "identical", "même médicament"],
+        "answer_must_contain": ["duplicate", "same drug", "already", "identical", "même médicament", "same International Nonproprietary Name", "same INN", "same molecule"],
         "answer_must_not_contain": [],
     },
     {

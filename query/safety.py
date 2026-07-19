@@ -299,13 +299,18 @@ def check_dose_appropriateness(
         recommendations = []
 
         elderly = age is not None and age >= 75
+
+        def _get_val(d, key, default):
+            v = d.get(key)
+            return default if v is None else v
+
         renal   = (
-            labs.get("creatinine_umol_L", 0) > 150
-            or labs.get("egfr", 100) < 30
+            _get_val(labs, "creatinine_umol_L", 0) > 150
+            or _get_val(labs, "egfr", 100) < 30
         )
         hepatic = (
-            labs.get("alt_iu_L", 0) > 120
-            or labs.get("ast_iu_L", 0) > 120
+            _get_val(labs, "alt_iu_L", 0) > 120
+            or _get_val(labs, "ast_iu_L", 0) > 120
         )
 
         if elderly and rec["dose_elderly"]:

@@ -46,7 +46,53 @@ def full_prescription_check(
     labs         = labs         or {}
 
     if not prescription:
-        return err("No prescription drugs provided")
+        if not patient_meds:
+            return err("No prescription drugs provided")
+        
+        interaction_result = detect_pairwise_interactions(patient_meds) if len(patient_meds) >= 2 else {
+            "status": "not_found", "data": {"interactions": []}, "message": "Only one drug"
+        }
+        cyp_result = detect_cyp_competition(patient_meds) if len(patient_meds) >= 2 else {
+            "status": "not_found", "data": {"competitions": []}, "message": "Only one drug"
+        }
+        
+        all_interactions = interaction_result.get("data", {}).get("interactions", [])
+        all_competitions = cyp_result.get("data", {}).get("competitions", [])
+        
+        critical_count = (
+            len([i for i in all_interactions if i.get("severity") in ("contre_indique", "deconseillee", "major")])
+            + len([c for c in all_competitions if c.get("strength") == "strong"])
+        )
+        
+        summary = {
+            "new_drugs":           [],
+            "patient_meds":        patient_meds,
+            "interactions_found":  len(all_interactions),
+            "cyp_competitions":    len(all_competitions),
+            "contraindications":   0,
+            "allergy_conflicts":   0,
+            "duplications":        0,
+            "dose_flags":          0,
+            "critical_issues":     critical_count,
+            "overall_risk":        (
+                "HIGH"   if critical_count > 0 else
+                "MEDIUM" if (len(all_interactions) + len(all_competitions)) > 0 else
+                "LOW"
+            ),
+        }
+        
+        status = "found" if critical_count > 0 or all_interactions or all_competitions else "not_found"
+        
+        return {
+            "status": status,
+            "data": {
+                "summary":          summary,
+                "interactions":     all_interactions,
+                "cyp_competition":  all_competitions,
+                "per_drug":         {},
+            },
+            "message": f"{critical_count} critical issue(s) — overall risk: {summary['overall_risk']}",
+        }
 
     new_drug_names = [p["drug"] for p in prescription if p.get("drug")]
     if not new_drug_names:

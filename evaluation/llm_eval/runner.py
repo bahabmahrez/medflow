@@ -152,7 +152,7 @@ def run_cases(cases: list[dict], delay: float = 0.5) -> list[dict]:
             print(f"  [{status}]")
             if not scored["passed"]:
                 for f in scored["failures"]:
-                    print(f"         ✗ {f}")
+                    print(f"         X {f}")
         except Exception as exc:
             scored = {"passed": False, "failures": [str(exc)], "result": pipeline_result or {}}
             print(f"  [ERROR] {exc}")
@@ -205,7 +205,7 @@ def report(results: list[dict]) -> None:
         for r in failing:
             print(f"\n  [{r['case']['id']}] {r['case']['description']}")
             for f in r["scored"]["failures"]:
-                print(f"     ✗ {f}")
+                print(f"     X {f}")
         print()
 
 

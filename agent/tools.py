@@ -226,7 +226,7 @@ TOOLS: list[dict] = [
                     },
                 },
             },
-            "required": ["prescription"],
+            "required": [],
         },
     },
 ]

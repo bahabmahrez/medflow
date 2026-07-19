@@ -190,6 +190,11 @@ def report(results: list[dict]) -> None:
 # ── CLI entry point ──────────────────────────────────────────────────────────
 
 def main() -> None:
+    if hasattr(sys.stdout, "reconfigure"):
+        try:
+            sys.stdout.reconfigure(encoding="utf-8")
+        except Exception:
+            pass
     parser = argparse.ArgumentParser(description="Run MedFlow agent evaluation suite")
     parser.add_argument("--tier", choices=["multi_tool", "ambiguity", "adversarial"], default=None)
     parser.add_argument("--delay", type=float, default=0.5)

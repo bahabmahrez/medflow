@@ -68,18 +68,18 @@ def main():
             # Store pairs in consistent order (smaller ID first in schema, but let's check both or check ordering)
             id_a, id_b = min(active_mol_id, prescribed_mol_id), max(active_mol_id, prescribed_mol_id)
             cur.execute("""
-                SELECT severity_ansm, severity_openfda, clinical_effect, management
+                SELECT severity_ansm, severity_active, clinical_effect, management
                 FROM drug_interactions
                 WHERE molecule_a_id = %s AND molecule_b_id = %s
             """, (id_a, id_b))
             row = cur.fetchone()
 
             if row:
-                severity_ansm, severity_openfda, clinical_effect, management = row
+                severity_ansm, severity_active, clinical_effect, management = row
                 print("\n=================== ALERT FOUND ===================")
                 print(f"Interaction: {active_inn} + {prescribed_drug}")
                 print(f"ANSM Severity: {severity_ansm}")
-                print(f"OpenFDA Severity: {severity_openfda}")
+                print(f"Active Severity: {severity_active}")
                 print(f"Clinical Effect: {clinical_effect}")
                 print(f"Management: {management}")
                 print("===================================================\n")
@@ -87,7 +87,7 @@ def main():
                 
                 # Check assertions
                 assert severity_ansm == "deconseillee", f"Expected ANSM severity 'deconseillee', got '{severity_ansm}'"
-                assert severity_openfda == "major", f"Expected OpenFDA severity 'major', got '{severity_openfda}'"
+                assert severity_active == "major", f"Expected active severity 'major', got '{severity_active}'"
                 assert "bleeding" in clinical_effect.lower() or "hemorrhage" in clinical_effect.lower(), "Expected bleeding or hemorrhage warning in clinical effect"
                 print("[SUCCESS] Assertions passed for warfarin + aspirin interaction.")
 

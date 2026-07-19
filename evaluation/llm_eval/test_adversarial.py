@@ -147,5 +147,5 @@ def test_tier3_live(case):
 
     assert scored["passed"], (
         f"[{case['id']}] {case['description']}\n"
-        + "\n".join(f"  ✗ {f}" for f in scored["failures"])
+        + "\n".join(f"  X {f}" for f in scored["failures"])
     )
