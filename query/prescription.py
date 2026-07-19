@@ -17,7 +17,7 @@ from .safety import (
 
 
 def full_prescription_check(
-    prescription: list[dict],
+    prescription: list[dict] | None = None,
     patient_meds: list[str] | None = None,
     conditions:   list[str] | None = None,
     allergies:    list[str] | None = None,

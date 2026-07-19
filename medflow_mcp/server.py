@@ -121,7 +121,7 @@ def get_drugs_by_class_tool(drug_class: str) -> str:
 
 @mcp.tool()
 def full_prescription_check_tool(
-    prescription: list[dict],
+    prescription: list[dict] | None = None,
     patient_meds: list[str] | None = None,
     conditions: list[str] | None = None,
     allergies: list[str] | None = None,
