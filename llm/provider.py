@@ -206,6 +206,7 @@ def _call_openai_compat_with_tools(
         model=model,
         max_tokens=max_tokens,
         messages=messages,
+        temperature=0.0,
         **kwargs,
     )
     message = response.choices[0].message
