@@ -1,15 +1,15 @@
-# MedFlow — Guide de Présentation (Agent & Serveur MCP)
+# MedFlow — Presentation Guide (Agent & MCP Server)
 
-Ce document résume l'architecture, les réalisations techniques et les optimisations récentes de **MedFlow**. Il est structuré pour servir de support à votre présentation devant votre enseignant.
+This document summarizes the architecture, technical achievements, and recent optimizations of **MedFlow**. It is structured to help you present and explain your work to your teacher.
 
 ---
 
-## 1. Vue d'Ensemble du Projet
-**MedFlow** est un assistant de sécurité pharmacologique intelligent. Il combine la puissance de raisonnement des LLM avec la rigueur factuelle d'une base de connaissances hybride pour détecter les risques lors de la prescription de médicaments.
+## 1. Project Overview
+**MedFlow** is an intelligent pharmacological safety assistant. It combines the reasoning capabilities of LLMs with the factual safety data of a hybrid knowledge base to detect clinical risks during drug prescriptions.
 
-### Architecture de Données Hybride :
-* **Base Relationnelle (PostgreSQL) :** Stocke les données dynamiques des patients (dossiers médicaux, historique de prescription, logs d'utilisation).
-* **Graphe de Connaissances (Neo4j) :** Modélise les relations cliniques complexes :
+### Hybrid Database Architecture:
+* **Relational Layer (PostgreSQL):** Stores dynamic patient data (medical charts, active prescriptions, audit logs).
+* **Graph Knowledge Layer (Neo4j):** Models complex clinical relationships:
   * `(Molecule)-[:BELONGS_TO]->(DrugClass)`
   * `(Molecule)-[:INTERACTS_WITH {severity: "major"}]->(Molecule)`
   * `(Molecule)-[:METABOLIZED_BY]->(CYPEnzyme)`
@@ -18,76 +18,90 @@ Ce document résume l'architecture, les réalisations techniques et les optimisa
 
 ---
 
-## 2. Semaine 4 : L'Agent Autonome (Tool-Calling)
-Contrairement aux pipelines GraphRAG classiques (qui exécutent des requêtes figées en amont), l'**Agent MedFlow** donne le contrôle au LLM pour interroger dynamiquement la base de connaissances.
+## 2. Week 4: The Autonomous Agent (Tool-Calling)
+Unlike classic GraphRAG pipelines (which execute rigid, hardcoded database queries before feeding text to the LLM), the **MedFlow Agent** delegates control to the LLM to query the database dynamically.
 
-### Fonctionnement de la Boucle d'Agent :
+### Agent Loop Workflow:
 ```mermaid
 graph TD
-    Question[Question du Pharmacien] --> CheckAmb{Le prompt est-il ambigu ?}
-    CheckAmb -- Oui --> Clarify[Clarifier & Demander des précisions ?]
-    CheckAmb -- Non --> Loop[Boucle d'Outils]
-    Loop --> CallTool[LLM appelle un ou plusieurs Outils]
-    CallTool --> Execute[Exécution de la requête sur le Graphe/SQL]
-    Execute --> Evaluate{Résultats complets ?}
-    Evaluate -- Non --> CallTool
-    Evaluate -- Oui --> FinalAnswer[Formuler la réponse clinique sécurisée]
+    Question[Pharmacist Question] --> CheckAmb{Is the question ambiguous?}
+    CheckAmb -- Yes --> Clarify[Ask Clarifying Question?]
+    CheckAmb -- No --> Loop[Tool-Calling Loop]
+    Loop --> CallTool[LLM requests one or more tool calls]
+    CallTool --> Execute[Execute query on Graph/SQL database]
+    Execute --> Evaluate{Is information sufficient?}
+    Evaluate -- No --> CallTool
+    Evaluate -- Yes --> FinalAnswer[Formulate safe clinical final answer]
 ```
 
-### Les 10 Outils Exposés à l'Agent :
-1. `resolve_drug_name` : Résout un nom commercial (ex: Tahor) en sa molécule active (ex: atorvastatine).
-2. `get_drug_profile` : Retourne la fiche technique complète d'une molécule.
-3. `detect_pairwise_interactions` : Recherche d'interactions directes enregistrées dans le graphe (ex: ANSM).
-4. `detect_cyp_competition` : Identifie les risques indirects (compétition enzymatique sur le CYP450).
-5. `check_contraindications` : Vérifie l'adéquation d'une molécule par rapport aux maladies (conditions) du patient.
-6. `check_allergy_conflict` : Vérifie les allergies directes ou croisées (ex: pénicilline vs céphalosporines).
-7. `check_therapeutic_duplication` : Détecte les doublons thérapeutiques (ex: deux statines prescrites en même temps).
-8. `check_dose_appropriateness` : Valide la dose selon l'âge, le poids et les données biologiques (créatinine, eGFR, ALT/AST).
-9. `get_drugs_by_class` : Récupère les alternatives thérapeutiques appartenant à une même classe de médicaments.
-10. `full_prescription_check` : Exécute de manière consolidée l'ensemble des 9 requêtes ci-dessus en un seul appel.
+### The 10 Safety Tools Exposed to the Agent:
+1. `resolve_drug_name`: Resolves brand names (e.g., Tahor) to canonical active molecules (e.g., atorvastatin).
+2. `get_drug_profile`: Returns full technical properties of a drug.
+3. `detect_pairwise_interactions`: Searches direct drug-drug interactions recorded in the graph.
+4. `detect_cyp_competition`: Detects indirect, enzyme-mediated interaction risks (CYP450).
+5. `check_contraindications`: Validates drugs against the patient's existing diseases (conditions).
+6. `check_allergy_conflict`: Checks for direct allergies and class cross-reactivities (e.g., penicillins vs cephalosporins).
+7. `check_therapeutic_duplication`: Detects duplicate drug therapies (e.g., prescribing two statins at once).
+8. `check_dose_appropriateness`: Checks dose flags based on age, weight, and lab metrics (creatinine, eGFR, liver enzymes).
+9. `get_drugs_by_class`: Lists alternative treatments belonging to the same drug class.
+10. `full_prescription_check`: A consolidated check executing all safety checks in a single call.
 
 ---
 
-## 3. Semaine 5 : Le Serveur MCP (Model Context Protocol)
-Le **Model Context Protocol** (créé par Anthropic) est un standard ouvert permettant d'exposer des données et des outils sécurisés à des assistants IA (comme Claude Desktop).
+## 3. Week 5: The MCP Server (Model Context Protocol)
+The **Model Context Protocol** (developed by Anthropic) is an open standard allowing secure data and tool sharing with AI assistants (such as Claude Desktop).
 
-### Intégration MedFlow MCP :
-* **Serveur standardisé (`medflow_mcp/server.py`) :** Expose les moteurs de requêtes du graphe sous forme d'outils et de ressources MCP standardisés.
-* **Intégration Claude Desktop :** Permet à l'application Claude d'interroger en temps réel votre base de données locale Neo4j lors d'un chat clinique normal.
-* **Outil d'inspection (MCP Inspector) :** Une interface de debug web (`mcp dev`) qui permet de visualiser le schéma des outils, d'exécuter des tests manuels et de monitorer les payloads JSON.
-
----
-
-## 4. Améliorations & Optimisations Récentes (Crucial pour l'Oral !)
-Récemment, nous avons mené une phase d'audit et de correction de bugs pour rendre le système robuste à 100%. Voici les points techniques clés à présenter :
-
-### A. Rendre l'évaluation de prescription robuste (Argument `prescription` optionnel)
-* **Problème :** L'outil `full_prescription_check` imposait le paramètre `prescription` comme obligatoire dans son schéma JSON. Lorsque l'agent voulait faire une simple réévaluation de l'ordonnance active d'un patient sans ajouter de nouveau médicament, le serveur MCP ou le validateur d'arguments plantait.
-* **Résolution :** Nous avons rendu l'argument `prescription` **optionnel** (dans le code métier, le validateur de l'agent, et la déclaration du serveur MCP). Désormais, si `prescription` est omis ou vide, le système réalise une évaluation de sécurité globale sur les seuls médicaments actifs existants du patient (`patient_meds`), rendant le système parfaitement flexible.
-
-### B. Fiabilité linguistique du LLM (Éviter les blocages et les caractères chinois)
-* **Problème :** Le modèle de langage local (`qwen2.5:7b-instruct`) est bilingue (anglais/chinois). Face à des termes médicaux complexes ou sous des contraintes trop strictes de prompt, il générait parfois des réponses en caractères chinois (ex: 肾功能不全 au lieu de "renal impairment") ou figeait sa sortie en affichant directement du code JSON brut au lieu de texte libre.
-* **Résolution :** Nous avons restructuré l'addendum du prompt système ([agent/system_prompt_addendum.txt](file:///c:/Users/bahab/OneDrive/Desktop/medflow/agent/system_prompt_addendum.txt)) :
-  * Déplacé les règles de langue au niveau de la définition de son rôle (`IDENTITY`).
-  * Enforcé l'obligation d'écrire exclusivement en anglais et interdit l'affichage de caractères chinois, sans surcharger les sections de formatage de code. Le modèle répond désormais de manière stable et naturelle en anglais.
-
-### C. Gestion robuste des données manquantes (`NoneType` safety)
-* **Problème :** L'analyseur biologique de dose (`check_dose_appropriateness`) plantait avec une erreur Python `TypeError: '>' not supported between instances of 'NoneType' and 'int'` lorsque le dictionnaire biologique contenait des valeurs `null` (ex: taux de créatinine non mesuré).
-* **Résolution :** Implémentation d'un helper d'extraction sécurisé (`_get_val`) dans `query/safety.py` pour gérer proprement les valeurs absentes ou `None` en retournant des valeurs par défaut non bloquantes.
-
-### D. Complétion des arêtes du graphe clinique
-* **Allergie Céphalexine/Pénicilline :** Ajout de la liaison manquante entre la molécule `cephalexin` et le groupe d'allergie des céphalosporines dans Neo4j et Postgres, permettant de lever une alerte d'allergie croisée en cas d'allergie documentée à la pénicilline.
-* **Contre-indication Metformine/IRC 4 :** Ajout de la relation de contre-indication directe `CONTRAINDICATED_FOR` dans le graphe entre la `metformin` et l'Insuffisance Rénale Chronique Stade 4 (`GB61`), bloquant immédiatement la prescription en cas d'insuffisance rénale sévère.
+### MedFlow MCP Integration:
+* **Standardized Server (`medflow_mcp/server.py`):** Exposes graph query engines as standardized MCP tools.
+* **Claude Desktop Integration:** Allows the desktop Claude app to query your local Neo4j database live during standard chat sessions.
+* **Web UI Debugger (MCP Inspector):** Runs via `mcp dev` to visually test tools, check parameters schemas, and inspect JSON payloads.
 
 ---
 
-## 5. Métriques & Résultats Finaux d'Évaluation
-Vous pouvez fièrement présenter à votre enseignant que l'application est entièrement validée par des tests automatisés :
+## 4. How to Address Teacher's Feedback: Showcasing Single-Tool Execution
+During your last review, your teacher asked you to **show that the chatbot can run with exactly one tool call**. 
 
-* **Tests Unitaires Globaux :** **100% de réussite (127/127 tests passés)**.
-* **Tests MCP Server :** **100% de réussite (15/15 tests passés)**.
-* **Suite d'Évaluation de l'Agent (25 Scénarios) :** **100% de réussite (25/25 passés)** :
-  * *Multi-tool (10/10)* : L'agent chaîne correctement plusieurs appels (ex: résolution de marque + interactions + compétition CYP).
-  * *Ambiguity (7/7)* : L'agent détecte le manque d'informations et refuse de prescrire à l'aveugle (dose sans unité, patient inconnu sans dossier).
-  * *Adversarial (8/8)* : L'agent résiste aux manipulations (questions orientées, fausses autorités du prescripteur).
-* **Suite d'Évaluation GraphRAG (30 Cas) :** **100% de réussite (30/30 passés)**.
+### Why the Teacher Asked This:
+They wanted to verify that the agent is efficient, avoids redundant database queries, and is smart enough to stop after the very first step when a single query is sufficient to answer the question.
+
+### How to Showcase it Live:
+To prove this, run a targeted query where only a single piece of information is needed from the graph:
+
+#### Scenario 1: A brand name resolution or identity check
+* **Question:** *"Is Tahor the same drug as atorvastatin?"*
+* **What happens:** The agent only needs to resolve the brand name `Tahor` to see if it matches `atorvastatin`. It calls `resolve_drug_name` and stops immediately.
+* **How to show the trace proof:**
+  Run this command in PowerShell to print the execution trace:
+  ```powershell
+  python -c "from agent import run_agent, pretty_print; r = run_agent('Is Tahor the same drug as atorvastatin?'); print(pretty_print(r['trace']))"
+  ```
+  **Point out the proof in the output:**
+  * Show that `iterations` is exactly `1`.
+  * Show that `steps` has exactly one entry calling `resolve_drug_name`.
+
+#### Scenario 2: A simple pairwise drug interaction
+* **Question:** *"Are there any interactions between warfarin and aspirin?"*
+* **What happens:** The agent only needs to check direct interactions. It calls `detect_pairwise_interactions` and immediately returns the answer.
+* **Execution Trace Proof:**
+  ```powershell
+  python -c "from agent import run_agent, pretty_print; r = run_agent('Are there any interactions between warfarin and aspirin?'); print(pretty_print(r['trace']))"
+  ```
+  * Show that the agent executes exactly **one turn** (calls `detect_pairwise_interactions`) and halts.
+
+---
+
+## 5. Recent Improvements & Optimizations
+We recently audited and polished the codebase to achieve 100% correct behavior:
+
+* **Robust Prescription Logic (Optional Parameters):** Updated `full_prescription_check` across agent tools ([agent/tools.py](file:///c:/Users/bahab/OneDrive/Desktop/medflow/agent/tools.py#L229)) and the MCP schema ([medflow_mcp/server.py](file:///c:/Users/bahab/OneDrive/Desktop/medflow/medflow_mcp/server.py#L124)) to make the `prescription` argument optional. This allows the model to review a patient's active drug charts without crashing.
+* **Bilingual LLM Language Control:** Tuned the system prompt addendum ([agent/system_prompt_addendum.txt](file:///c:/Users/bahab/OneDrive/Desktop/medflow/agent/system_prompt_addendum.txt)) by shifting English output requirements to the `IDENTITY` block. This prevents the local Qwen model from writing Chinese terms or freezing outputs into raw JSON.
+* **Type-Safety Protections:** Fixed a crash in the renal/hepatic dose checker (`query/safety.py`) caused by unmeasured, `NoneType` lab values.
+* **Graph Database Additions:** Loaded cephalosporin cross-reactivity and metformin renal contraindications in both Neo4j and Postgres.
+
+---
+
+## 6. Final Evaluation Metrics
+* **Python Unit Tests:** **100% passing (127/127)**.
+* **MCP Server Tests:** **100% passing (15/15)**.
+* **Agent Evaluation (25 Scénarios):** **100% passing (25/25)** (Multi-tool: 10/10, Ambiguity: 7/7, Adversarial: 8/8).
+* **GraphRAG Chatbot Evaluation (30 Cas):** **100% passing (30/30)**.
