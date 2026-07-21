@@ -11,38 +11,38 @@ You can view this diagram directly on GitHub, VS Code, or any Markdown-compatibl
 ```mermaid
 graph TD
     %% Clients
-    subgraph Client Layer
+    subgraph CLIENT ["Client Layer"]
         CD["Claude Desktop Client"]
         MI["MCP Inspector (Web GUI)"]
         HC["HTTP / REST Client (PowerShell/etc.)"]
     end
 
     %% Interfaces
-    subgraph Interface & Gateway Layer
+    subgraph GATEWAY ["Interface & Gateway Layer"]
         MCP["FastMCP Server<br/>(medflow_mcp/server.py)"]
         API["FastAPI / Uvicorn Server<br/>(graphrag/server.py)"]
     end
 
     %% Orchestrators
-    subgraph Agent & Orchestration Layer
+    subgraph ORCH ["Agent & Orchestration Layer"]
         AG["Autonomous Agent Loop<br/>(agent/loop.py)"]
         RAG["GraphRAG Ask Pipeline<br/>(graphrag/ask.py)"]
     end
 
     %% LLM Engine
-    subgraph LLM Inference Engine
+    subgraph LLM ["LLM Inference Engine"]
         PROV["LLM Provider Shim<br/>(llm/provider.py)"]
         OLL["Local Ollama Server<br/>(qwen2.5:7b-instruct)"]
     end
 
     %% Storage
-    subgraph Hybrid Storage Layer (Docker Compose)
+    subgraph STORAGE ["Hybrid Storage Layer (Docker Compose)"]
         N4J[("Neo4j Graph Database<br/>(Clinical Knowledge & Rules)")]
         PG[("PostgreSQL Database<br/>(Patients, Doses & Audit Logs)")]
     end
 
     %% Data Loaders
-    subgraph Data Loading Layer
+    subgraph DATA ["Data Loading Layer"]
         LDR["Database Loaders<br/>(run_loaders.py)"]
         GLDR["Graph Loaders<br/>(run_loaders_graph.py)"]
         RAW["Clinical Data Sources<br/>(db/data/)"]
