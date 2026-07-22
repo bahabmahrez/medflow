@@ -1,123 +1,140 @@
 <mxfile host="65bd71144e">
     <diagram name="MedFlow Architecture" id="medflow-arch">
-        <mxGraphModel dx="1538" dy="749" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1000" pageHeight="820" math="0" shadow="0">
+        <mxGraphModel dx="1452" dy="573" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1000" pageHeight="860" math="0" shadow="0">
             <root>
                 <mxCell id="0"/>
                 <mxCell id="1" parent="0"/>
-                <mxCell id="e12" value="fetches clinical context" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=10;" parent="1" source="o2" target="s1" edge="1">
-                    <mxGeometry x="-0.0617" y="-54" relative="1" as="geometry">
-                        <mxPoint x="24" y="-45" as="offset"/>
-                    </mxGeometry>
-                </mxCell>
                 <mxCell id="bgClient" value="CLIENT LAYER" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#cccccc;verticalAlign=top;align=left;fontSize=13;fontStyle=1;spacingLeft=12;spacingTop=6;fontColor=#666666;" parent="1" vertex="1">
                     <mxGeometry x="40" y="40" width="920" height="100" as="geometry"/>
                 </mxCell>
                 <mxCell id="bgGateway" value="INTERFACE &amp; GATEWAY LAYER" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#cccccc;verticalAlign=top;align=left;fontSize=13;fontStyle=1;spacingLeft=12;spacingTop=6;fontColor=#666666;" parent="1" vertex="1">
                     <mxGeometry x="40" y="160" width="920" height="100" as="geometry"/>
                 </mxCell>
-                <mxCell id="bgOrch" value="AGENT &amp; ORCHESTRATION LAYER" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#cccccc;verticalAlign=top;align=left;fontSize=13;fontStyle=1;spacingLeft=12;spacingTop=6;fontColor=#666666;" parent="1" vertex="1">
-                    <mxGeometry x="40" y="280" width="920" height="100" as="geometry"/>
-                </mxCell>
-                <mxCell id="bgLLM" value="LLM INFERENCE ENGINE" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#cccccc;verticalAlign=top;align=left;fontSize=13;fontStyle=1;spacingLeft=12;spacingTop=6;fontColor=#666666;" parent="1" vertex="1">
-                    <mxGeometry x="40" y="400" width="920" height="100" as="geometry"/>
+                <mxCell id="bgOrch" value="AGENT &amp; ORCHESTRATION LAYER  /  LLM INFERENCE ENGINE" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#cccccc;verticalAlign=top;align=left;fontSize=13;fontStyle=1;spacingLeft=12;spacingTop=6;fontColor=#666666;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="280" width="920" height="190" as="geometry"/>
                 </mxCell>
                 <mxCell id="bgStorage" value="HYBRID STORAGE LAYER (Docker Compose)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#cccccc;verticalAlign=top;align=left;fontSize=13;fontStyle=1;spacingLeft=12;spacingTop=6;fontColor=#666666;" parent="1" vertex="1">
-                    <mxGeometry x="40" y="520" width="920" height="110" as="geometry"/>
+                    <mxGeometry x="40" y="490" width="920" height="120" as="geometry"/>
                 </mxCell>
                 <mxCell id="bgData" value="DATA LOADING LAYER" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#cccccc;verticalAlign=top;align=left;fontSize=13;fontStyle=1;spacingLeft=12;spacingTop=6;fontColor=#666666;" parent="1" vertex="1">
-                    <mxGeometry x="40" y="650" width="920" height="100" as="geometry"/>
+                    <mxGeometry x="40" y="630" width="920" height="190" as="geometry"/>
                 </mxCell>
                 <mxCell id="c1" value="Claude Desktop Client" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" parent="1" vertex="1">
-                    <mxGeometry x="60" y="70" width="180" height="50" as="geometry"/>
+                    <mxGeometry x="120" y="70" width="200" height="50" as="geometry"/>
                 </mxCell>
                 <mxCell id="c2" value="MCP Inspector (Web GUI)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" parent="1" vertex="1">
-                    <mxGeometry x="270" y="70" width="200" height="50" as="geometry"/>
+                    <mxGeometry x="360" y="70" width="200" height="50" as="geometry"/>
                 </mxCell>
                 <mxCell id="c3" value="HTTP / REST Client&#xa;(PowerShell / curl / etc.)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" parent="1" vertex="1">
-                    <mxGeometry x="500" y="70" width="220" height="50" as="geometry"/>
+                    <mxGeometry x="640" y="70" width="220" height="50" as="geometry"/>
                 </mxCell>
                 <mxCell id="g1" value="FastMCP Server&#xa;(medflow_mcp/server.py)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;" parent="1" vertex="1">
                     <mxGeometry x="120" y="190" width="320" height="50" as="geometry"/>
                 </mxCell>
                 <mxCell id="g2" value="FastAPI / Uvicorn Server&#xa;(graphrag/server.py)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;" parent="1" vertex="1">
-                    <mxGeometry x="500" y="190" width="320" height="50" as="geometry"/>
+                    <mxGeometry x="480" y="190" width="320" height="50" as="geometry"/>
                 </mxCell>
                 <mxCell id="o1" value="Autonomous Agent Loop&#xa;(agent/loop.py)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=12;" parent="1" vertex="1">
-                    <mxGeometry x="120" y="310" width="320" height="50" as="geometry"/>
+                    <mxGeometry x="120" y="310" width="280" height="50" as="geometry"/>
                 </mxCell>
                 <mxCell id="o2" value="GraphRAG Ask Pipeline&#xa;(graphrag/pipeline.py)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=12;" parent="1" vertex="1">
-                    <mxGeometry x="500" y="310" width="320" height="50" as="geometry"/>
+                    <mxGeometry x="480" y="310" width="280" height="50" as="geometry"/>
                 </mxCell>
                 <mxCell id="l1" value="LLM Provider Shim&#xa;(llm/provider.py)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=12;" parent="1" vertex="1">
-                    <mxGeometry x="170" y="430" width="280" height="50" as="geometry"/>
+                    <mxGeometry x="810" y="310" width="140" height="50" as="geometry"/>
                 </mxCell>
-                <mxCell id="l2" value="Local Ollama Server&#xa;(qwen2.5:7b-instruct, temp=0)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=12;" parent="1" vertex="1">
-                    <mxGeometry x="530" y="430" width="280" height="50" as="geometry"/>
+                <mxCell id="l2" value="Local Ollama&#xa;(qwen2.5:7b, temp=0)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;" parent="1" vertex="1">
+                    <mxGeometry x="810" y="400" width="140" height="50" as="geometry"/>
                 </mxCell>
                 <mxCell id="s1" value="Neo4j Graph Database&#xa;(Clinical Knowledge &amp; Rules)" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#f8cecc;strokeColor=#b85450;fontSize=12;" parent="1" vertex="1">
-                    <mxGeometry x="170" y="550" width="280" height="70" as="geometry"/>
+                    <mxGeometry x="120" y="520" width="280" height="70" as="geometry"/>
                 </mxCell>
                 <mxCell id="s2" value="PostgreSQL Database&#xa;(Patients, Doses, Audit Logs)" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#f8cecc;strokeColor=#b85450;fontSize=12;" parent="1" vertex="1">
-                    <mxGeometry x="530" y="550" width="280" height="70" as="geometry"/>
+                    <mxGeometry x="480" y="520" width="280" height="70" as="geometry"/>
                 </mxCell>
                 <mxCell id="d1" value="Clinical Data Sources&#xa;(db/data/)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=12;" parent="1" vertex="1">
-                    <mxGeometry x="80" y="680" width="220" height="50" as="geometry"/>
-                </mxCell>
-                <mxCell id="d2" value="DB Loaders&#xa;(run_loaders.py)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=12;" parent="1" vertex="1">
-                    <mxGeometry x="380" y="680" width="220" height="50" as="geometry"/>
+                    <mxGeometry x="360" y="660" width="220" height="50" as="geometry"/>
                 </mxCell>
                 <mxCell id="d3" value="Graph Loaders&#xa;(run_loaders_graph.py)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=12;" parent="1" vertex="1">
-                    <mxGeometry x="660" y="680" width="220" height="50" as="geometry"/>
+                    <mxGeometry x="130" y="750" width="260" height="50" as="geometry"/>
                 </mxCell>
-                <mxCell id="e1" value="MCP protocol" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=10;" parent="1" source="c1" target="g1" edge="1">
+                <mxCell id="d2" value="DB Loaders&#xa;(run_loaders.py)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=12;" parent="1" vertex="1">
+                    <mxGeometry x="490" y="750" width="260" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="e1" value="MCP protocol" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=10;labelBackgroundColor=#ffffff;exitX=0.25;exitY=1;exitDx=0;exitDy=0;entryX=0.2;entryY=0;entryDx=0;entryDy=0;" parent="1" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <mxPoint x="247" y="120" as="sourcePoint"/>
+                        <mxPoint x="261.0000000000002" y="190" as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="e2" value="MCP protocol" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=10;labelBackgroundColor=#ffffff;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.75;entryY=0;entryDx=0;entryDy=0;" parent="1" source="c2" target="g1" edge="1">
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
-                <mxCell id="e2" value="MCP protocol" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=10;" parent="1" source="c2" target="g1" edge="1">
+                <mxCell id="e3" value="HTTP API" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=10;labelBackgroundColor=#ffffff;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="1" source="c3" target="g2" edge="1">
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
-                <mxCell id="e3" value="HTTP API" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=10;" parent="1" source="c3" target="g2" edge="1">
+                <mxCell id="e4" value="Route: /ask" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=10;labelBackgroundColor=#ffffff;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="1" source="g2" target="o2" edge="1">
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
-                <mxCell id="e4" value="/ask" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=10;" parent="1" source="g2" target="o2" edge="1">
-                    <mxGeometry relative="1" as="geometry"/>
+                <mxCell id="e5" value="Route: /agent/ask" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=10;labelBackgroundColor=#ffffff;exitX=0.25;exitY=1;exitDx=0;exitDy=0;entryX=0.75;entryY=0;entryDx=0;entryDy=0;" parent="1" source="g2" target="o1" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="600" y="280"/>
+                        </Array>
+                    </mxGeometry>
                 </mxCell>
-                <mxCell id="e5" value="/agent/ask" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=10;" parent="1" source="g2" target="o1" edge="1">
-                    <mxGeometry relative="1" as="geometry"/>
-                </mxCell>
-                <mxCell id="e6" value="multi-turn tool selection" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=10;startArrow=classic;startFill=1;" parent="1" source="o1" target="l1" edge="1">
-                    <mxGeometry relative="1" as="geometry"/>
-                </mxCell>
-                <mxCell id="e7" value="single context injection" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=10;" parent="1" source="o2" target="l1" edge="1">
-                    <mxGeometry x="-0.0175" y="35" relative="1" as="geometry">
+                <mxCell id="e6" value="Multi-turn Tool Selection" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=10;labelBackgroundColor=#ffffff;exitX=1;exitY=0.3;exitDx=0;exitDy=0;entryX=0;entryY=0.3;entryDx=0;entryDy=0;startArrow=classic;startFill=1;" parent="1" edge="1">
+                    <mxGeometry x="0.2976" y="20" relative="1" as="geometry">
+                        <mxPoint x="404" y="320" as="sourcePoint"/>
+                        <mxPoint x="814" y="320" as="targetPoint"/>
                         <mxPoint as="offset"/>
                     </mxGeometry>
                 </mxCell>
-                <mxCell id="e8" value="OpenAI API compat" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=10;startArrow=classic;startFill=1;" parent="1" source="l1" target="l2" edge="1">
+                <mxCell id="e7" value="Single Context Injection" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=10;labelBackgroundColor=#ffffff;exitX=1;exitY=0.7;exitDx=0;exitDy=0;entryX=0;entryY=0.7;entryDx=0;entryDy=0;" parent="1" source="o2" target="l1" edge="1">
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
-                <mxCell id="e9" value="exposes 10 safety tools" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=10;" parent="1" source="g1" target="s1" edge="1">
+                <mxCell id="e8" value="OpenAI API v1 Compat" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=10;labelBackgroundColor=#ffffff;startArrow=classic;startFill=1;" parent="1" source="l1" target="l2" edge="1">
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
-                <mxCell id="e10" value="executes query engines" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=10;" parent="1" source="o1" target="s1" edge="1">
-                    <mxGeometry x="0.6364" y="-10" relative="1" as="geometry">
+                <mxCell id="e10" value="Executes Query Engines" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=10;labelBackgroundColor=#ffffff;exitX=0.3;exitY=1;exitDx=0;exitDy=0;entryX=0.3;entryY=0;entryDx=0;entryDy=0;" parent="1" source="o1" target="s1" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e11" value="Queries Biological Data" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=10;labelBackgroundColor=#ffffff;exitX=0.7;exitY=1;exitDx=0;exitDy=0;entryX=0.15;entryY=0;entryDx=0;entryDy=0;" parent="1" edge="1">
+                    <mxGeometry x="-0.158" y="-20" relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="450" y="469"/>
+                        </Array>
+                        <mxPoint x="316" y="359" as="sourcePoint"/>
+                        <mxPoint x="522.0000000000002" y="519" as="targetPoint"/>
                         <mxPoint as="offset"/>
                     </mxGeometry>
                 </mxCell>
-                <mxCell id="e11" value="queries biological data" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=10;" parent="1" source="o1" target="s2" edge="1">
-                    <mxGeometry x="0.191" relative="1" as="geometry">
-                        <mxPoint y="1" as="offset"/>
+                <mxCell id="e12" value="Fetches Clinical Context" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=10;labelBackgroundColor=#ffffff;exitX=0.3;exitY=1;exitDx=0;exitDy=0;entryX=0.85;entryY=0;entryDx=0;entryDy=0;" parent="1" source="o2" target="s1" edge="1">
+                    <mxGeometry x="-0.1313" y="15" relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="430" y="475"/>
+                        </Array>
+                        <mxPoint as="offset"/>
                     </mxGeometry>
                 </mxCell>
-                <mxCell id="e13" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;" parent="1" source="d1" target="d2" edge="1">
+                <mxCell id="e9" value="Exposes 10 Safety Tools" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=10;labelBackgroundColor=#ffffff;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" parent="1" source="g1" target="s1" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="70" y="215"/>
+                            <mxPoint x="70" y="555"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="e13" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;exitX=0.25;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="1" source="d1" target="d3" edge="1">
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
-                <mxCell id="e14" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;" parent="1" source="d1" target="d3" edge="1">
+                <mxCell id="e14" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;exitX=0.75;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="1" source="d1" target="d2" edge="1">
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
-                <mxCell id="e15" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" parent="1" source="d2" target="s2" edge="1">
+                <mxCell id="e15" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;startArrow=classic;startFill=1;endArrow=none;" parent="1" source="d3" target="s1" edge="1">
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
-                <mxCell id="e16" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" parent="1" source="d3" target="s1" edge="1">
+                <mxCell id="e16" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;startArrow=classic;startFill=1;endArrow=none;" parent="1" source="d2" target="s2" edge="1">
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
             </root>
