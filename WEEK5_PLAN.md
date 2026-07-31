@@ -3,26 +3,29 @@
 > **Theme:** Turn the existing tools into a *real* agent loop that drives them over the **MCP server**, give the agent an **identity + permissions gate**, add **context compaction**, and make **evaluation + observability** an always-on layer.
 >
 > **How we work this week:** *Guide & review.* You write the core implementation so the concepts stick. I explain each concept, scaffold structure + stubs with `TODO`s, and review/critique your code. **Loop approach:** manual MCP client (reuse the existing loop). **Scope:** a working first version of **all four** milestones.
+>
+> **📌 Status update — 2026-07-31:** The team has **implemented Milestones 1–3 and the observability piece of M4** (committed in `b4ec9b1`). The loop now drives tools over a real MCP client, with a permission gate and context compaction; evaluation runs are logged via a **custom JSON logger** (chosen over Opik). **What's left:** run the eval suites *live* against Groq and fix failures (§8), plus the **code-review findings in §9** (dated today). Study guide: [docs/MCP_STUDY_GUIDE.md](docs/MCP_STUDY_GUIDE.md); sources: [docs/LEARNING_LOG.md](docs/LEARNING_LOG.md).
 
 ---
 
 ## 0. Context — where the project actually stands
 
-The Week 5 brief assumes less exists than it does. After analyzing the repo, here is the honest starting line:
+The Week 5 brief assumed less existed than it did — and as of **2026-07-31** most of the build is done. Status table below reflects reality after commit `b4ec9b1`:
 
-| Capability | Status today | File |
+| Capability | Status (2026-07-31) | File |
 |---|---|---|
-| Agent loop (native tool-calling, 8-iteration cap, forced final synthesis, trace) | ✅ **Exists** — but calls tools **in-process** | [agent/loop.py](agent/loop.py) |
+| Agent loop (native tool-calling, 8-iteration cap, forced final synthesis, trace) | ✅ Exists — now **async**, drives tools over MCP | [agent/loop.py](agent/loop.py) |
 | 10 clinical tools (pairwise, CYP, contraindication, allergy, dose…) | ✅ Exists, all **read-only** | [query/](query/) |
 | MCP **server** (FastMCP, 10 tools + 3 resources + 3 prompts, stdio) | ✅ Exists | [medflow_mcp/server.py](medflow_mcp/server.py) |
 | Provider layer with native function-calling (Groq / Anthropic / Ollama) | ✅ Exists — `generate_with_tools` | [llm/provider.py](llm/provider.py) |
 | Eval suites (30 GraphRAG cases + 25 agentic cases, tiered) | ✅ Exists, keyword-substring scoring | [evaluation/](evaluation/) |
-| **MCP *client*** (loop connects to the server, discovers tools) | ❌ **Missing** → Milestone 1 | — |
-| **Permissions / HITL gate**, read-vs-write tool classification | ❌ **Missing** → Milestone 2 | — |
-| **Context management / compaction / token budget** | ❌ **Missing** → Milestone 3 | — |
-| **Observability platform** (Opik), trace persistence, LLM-as-judge | ❌ **Missing** → Milestone 4 | — |
+| **MCP *client*** (loop connects to the server, discovers tools) | ✅ **Done (M1)** — `_create_mcp_session` → `list_tools` → `call_tool` | [agent/loop.py](agent/loop.py) |
+| **Permissions / HITL gate**, read-vs-write tool classification | ✅ **Done (M2)** — `classify_tool` + `require_confirmation` gate | [agent/permissions.py](agent/permissions.py) |
+| **Context management / compaction** | ✅ **Done (M3)** — `summary + recent tail`, threshold 12 | [agent/loop.py](agent/loop.py) |
+| **Observability**, trace persistence | ✅ **Done (custom)** — JSON run logger (chose over Opik) | [evaluation/observability.py](evaluation/observability.py) |
+| Live eval runs (Groq) + LLM-as-judge scoring | 🚧 **Remaining (M4)** — see §8 | [evaluation/](evaluation/) |
 
-**So the mental model for the week is "connect + extend," not "build from zero."** The single most important new idea is **tool discovery over MCP**: instead of the loop knowing its tools from a hardcoded Python registry ([agent/tools.py](agent/tools.py)), it will *ask the MCP server* what tools exist and call them across a protocol boundary. That is the thing that makes the Pharmacy Agent a reusable service the future Doctor Agent can also call.
+**So the mental model now is "understand, harden, and verify," not "build from zero."** The single most important idea to *understand deeply* is **tool discovery over MCP**: the loop no longer knows its tools from a hardcoded registry — it *asks the MCP server* what tools exist and calls them across a protocol boundary ([docs/MCP_STUDY_GUIDE.md](docs/MCP_STUDY_GUIDE.md) walks this through your actual code). That is what makes the Pharmacy Agent a reusable service the future Doctor Agent can also call.
 
 ---
 
@@ -206,10 +209,36 @@ Keep this current; it's what you share Friday. Pre-seeded with what this plan wi
 
 ---
 
-## 8. Definition of done (the Week 5 checkpoint)
+## 8. Definition of done (the Week 5 checkpoint) — updated 2026-07-31
 
-- [ ] **M1** — Agent loop runs **over the MCP server**: tools discovered via `list_tools`, selected/chained autonomously, iteration cap + trace intact.
-- [ ] **M2** — Clear identity; **permissions gate** forces confirmation on any `action`-class tool (proven against a temporarily-flagged tool; read-only unchanged).
-- [ ] **M3** — A working **context-compaction** first version keeps a long conversation coherent.
-- [ ] **M4** — Evaluation is continuous: **benchmarks + regressions + production-style**, **≥25 agentic scenarios green**, traces logged (Opik).
-- [ ] **Learning Log** (§6) complete and ready to share.
+- [x] **M1** — Agent loop runs **over the MCP server**: tools discovered via `list_tools`, selected/chained autonomously, iteration cap + trace intact. *(Unit-tested with a mocked session — not yet verified against the live server.)*
+- [x] **M2** — Clear identity; **permissions gate** forces confirmation on any `action`-class tool (tested via a temporarily-flagged tool; read-only unchanged).
+- [x] **M3** — A working **context-compaction** first version (`summary + tail`, threshold 12). *(§9 C2 fixed — compaction now preserves assistant/tool pairing, safe for long live conversations.)*
+- [~] **M4** — Observability logging done (custom JSON logger). **Remaining:** run benchmarks/regressions/production-style **live against Groq**, reach **≥25 agentic scenarios green**, and (stretch) add one **LLM-as-judge** metric.
+- [ ] **Learning Log** ([docs/LEARNING_LOG.md](docs/LEARNING_LOG.md)) complete and ready to share.
+
+### Remaining, concretely
+1. `docker compose up -d`, then run `python -m evaluation.agent_eval.runner` and `python -m evaluation.llm_eval.runner` **live**; record results in `evaluation/RESULTS.md`.
+2. Fix any failures surfaced; keep the non-live suite green (`pytest -m "not live" -q`).
+3. Address the §9 code-review findings (at least C1–C4).
+4. Reconcile the model-of-record drift (§7.3) so the eval baseline is comparable.
+
+---
+
+## 9. Code-review findings — 2026-07-31
+
+Review of the Week 5 changeset (`agent/loop.py`, `agent/permissions.py`, `evaluation/observability.py`, the runners). Ranked; **C = correctness, Q = quality/robustness.** None block the unit tests (which mock the MCP session) — most bite only on the **live path**, which is exactly the remaining M4 work.
+
+> **✅ Resolved 2026-07-31.** All seven findings below were fixed; `agent/tests` + `llm/tests` stay green (**35 passed, 3 skipped**). Fixes: **C1** → `AsyncExitStack` owns the session, closed in the same task; **C2** → compaction walks the tail boundary so it never starts on a `tool` message; **C3** → ASCII confirmation prompt; **C4** → short→MCP name map built dynamically at discovery (static dict removed); **Q5** → cancelled-branch duration set to `0.0`; **Q6** → `getattr` guard on error content; **Q7** → `datetime.now(timezone.utc)`. *(Not yet committed — the team commits manually.)*
+
+| # | Sev | Finding | Where |
+|---|---|---|---|
+| **C1** | High | **MCP session entered via `__aenter__()` but never `__aexit__()`-ed** — cleanup only closes the raw streams. Skips anyio/subprocess teardown → leaked `server.py` subprocesses (25+ across an eval run) and possible "cancel scope" errors. Fix: use `contextlib.AsyncExitStack` (enter+close in the same task). | [agent/loop.py](agent/loop.py) `_create_mcp_session` L224–242, cleanup L309–315 |
+| **C2** | High | **Compaction can split an `assistant(tool_calls)` message from its `tool` results.** If the retained 5-message tail starts on a `role:"tool"` message, the next Groq/OpenAI call 400s ("tool message must follow tool_calls"). Triggers on long live consults (>12 msgs) — the very scenario the feature exists for. Fix: compact on turn boundaries; never start the tail on a `tool` message. | [agent/loop.py](agent/loop.py) `_compact_conversation` L159–219 |
+| **C3** | Med | **Emoji in confirmation prompt crashes on Windows cp1252 console** (`⚠️` → `UnicodeEncodeError`). The project already had cp1252 issues. Bites in Week 6 when action tools go live. Fix: ASCII (`[!]`). | [agent/permissions.py](agent/permissions.py) L61 |
+| **C4** | Med | **Hardcoded `_SHORT_TO_MCP_NAME` map defeats dynamic discovery.** Add an 11th server tool and the LLM sees it but `call_tool` sends the wrong (unsuffixed) name → tool-not-found. Fix: build the short→MCP map during discovery from the real tool names. | [agent/loop.py](agent/loop.py) L35–46, L417 |
+| Q5 | Low | Cancelled-branch `start`/`duration_ms` measures nothing (always ~0). Set `duration_ms = 0.0`. | [agent/loop.py](agent/loop.py) L401–402 |
+| Q6 | Low | `_convert_mcp_result` error path assumes `content[0].text` exists (uncaught `AttributeError` if not `TextContent`). | [agent/loop.py](agent/loop.py) L134–138 |
+| Q7 | Low | `datetime.utcnow()` deprecated (Py 3.12+). Use `datetime.now(timezone.utc)`. | [evaluation/observability.py](evaluation/observability.py) L58, L71 |
+
+**Not bugs, worth noting:** a fresh MCP subprocess *and* fresh Neo4j driver are created **per question** — fine for a demo, slow for a 25-case suite (and compounds C1). Reusing one session across a batch is a natural Week-6 optimization.

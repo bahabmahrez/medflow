@@ -7,7 +7,7 @@ from __future__ import annotations
 import json
 from unittest.mock import patch, MagicMock, AsyncMock
 
-from agent.loop import run_agent, _SHORT_TO_MCP_NAME
+from agent.loop import run_agent
 
 
 # ── Mock MCP helpers ──────────────────────────────────────────────────────────
@@ -92,15 +92,11 @@ def _mock_session(call_tool_result: dict | None = None, tools: list | None = Non
     return session
 
 
-def _mock_streams():
-    """Mock MCP stdio streams (read/write) for the session context."""
-    read = AsyncMock()
-    write = AsyncMock()
-    read.__aenter__ = AsyncMock(return_value=read)
-    read.__aexit__ = AsyncMock(return_value=None)
-    write.__aenter__ = AsyncMock(return_value=write)
-    write.__aexit__ = AsyncMock(return_value=None)
-    return read, write
+def _mock_stack():
+    """Mock the AsyncExitStack that owns the MCP session lifecycle."""
+    stack = AsyncMock()
+    stack.aclose = AsyncMock(return_value=None)
+    return stack
 
 
 def _run_with_mocks(
@@ -119,11 +115,11 @@ def _run_with_mocks(
     (wrapped into an MCP result envelope).
     """
     session = _mock_session(call_tool_result)
-    read, write = _mock_streams()
+    stack = _mock_stack()
 
     patchers = [
         patch("agent.loop.generate_with_tools", side_effect=generate_responses),
-        patch("agent.loop._create_mcp_session", new=AsyncMock(return_value=(session, read, write))),
+        patch("agent.loop._create_mcp_session", new=AsyncMock(return_value=(session, stack))),
     ]
     for p in patchers:
         p.start()
@@ -204,10 +200,10 @@ def test_iteration_cap_forces_final_answer_with_no_tools():
         return forced_answer if tools == [] else infinite_tool_calls
 
     session = _mock_session()
-    read, write = _mock_streams()
+    stack = _mock_stack()
 
     with patch("agent.loop.generate_with_tools", side_effect=fake_generate):
-        with patch("agent.loop._create_mcp_session", new=AsyncMock(return_value=(session, read, write))):
+        with patch("agent.loop._create_mcp_session", new=AsyncMock(return_value=(session, stack))):
             result = run_agent("Ambiguous question", max_iterations=3)
 
     trace = result["trace"]
@@ -221,10 +217,10 @@ def test_iteration_cap_forces_final_answer_with_no_tools():
 def test_provider_error_does_not_crash_and_produces_graceful_final_answer():
     """A provider-level exception must be caught and produce a graceful answer."""
     session = _mock_session()
-    read, write = _mock_streams()
+    stack = _mock_stack()
 
     with patch("agent.loop.generate_with_tools", side_effect=RuntimeError("400 tool_use_failed: bad schema")):
-        with patch("agent.loop._create_mcp_session", new=AsyncMock(return_value=(session, read, write))):
+        with patch("agent.loop._create_mcp_session", new=AsyncMock(return_value=(session, stack))):
             result = run_agent("Is metformin an appropriate dose for this patient?")
 
     trace = result["trace"]
@@ -242,10 +238,10 @@ def test_provider_error_on_forced_final_call_also_handled_gracefully():
         return infinite_tool_calls
 
     session = _mock_session()
-    read, write = _mock_streams()
+    stack = _mock_stack()
 
     with patch("agent.loop.generate_with_tools", side_effect=fake_generate):
-        with patch("agent.loop._create_mcp_session", new=AsyncMock(return_value=(session, read, write))):
+        with patch("agent.loop._create_mcp_session", new=AsyncMock(return_value=(session, stack))):
             result = run_agent("Ambiguous question", max_iterations=2)
 
     assert result["trace"]["stopped_reason"] == "llm_error"
@@ -254,10 +250,10 @@ def test_provider_error_on_forced_final_call_also_handled_gracefully():
 
 def test_patient_context_rendered_into_first_user_message():
     session = _mock_session()
-    read, write = _mock_streams()
+    stack = _mock_stack()
 
     with patch("agent.loop.generate_with_tools", return_value=_final("ok")) as mocked:
-        with patch("agent.loop._create_mcp_session", new=AsyncMock(return_value=(session, read, write))):
+        with patch("agent.loop._create_mcp_session", new=AsyncMock(return_value=(session, stack))):
             run_agent("Review this prescription", patient_context={"allergies": ["penicillin"], "age": 78})
 
     messages = mocked.call_args[0][0]
@@ -343,11 +339,11 @@ def test_context_compaction_triggers_at_threshold():
     responses = [tool_call_response] * 7 + [final_response]
 
     session = _mock_session(call_tool_result={"status": "found", "data": {"canonical": "warfarin"}, "message": "ok"})
-    read, write = _mock_streams()
+    stack = _mock_stack()
 
     with patch("agent.loop.generate_with_tools", side_effect=responses):
         with patch("agent.loop.generate", return_value="Compacted summary of earlier turns.") as mock_generate:
-            with patch("agent.loop._create_mcp_session", new=AsyncMock(return_value=(session, read, write))):
+            with patch("agent.loop._create_mcp_session", new=AsyncMock(return_value=(session, stack))):
                 result = run_agent("Long conversation test", max_iterations=10)
 
     assert result["final_answer"] == "Final answer after many turns."

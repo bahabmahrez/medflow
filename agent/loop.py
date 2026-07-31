@@ -16,6 +16,7 @@ import asyncio
 import json
 import sys
 import time
+from contextlib import AsyncExitStack
 from pathlib import Path
 from typing import Any
 
@@ -31,19 +32,10 @@ _MCP_SERVER_PATH = str(
     Path(__file__).resolve().parent.parent / "medflow_mcp" / "server.py"
 )
 
-# Map short LLF tool names → MCP tool names (server.py adds '_tool' suffix).
-_SHORT_TO_MCP_NAME: dict[str, str] = {
-    "resolve_drug_name": "resolve_drug_name_tool",
-    "get_drug_profile": "get_drug_profile_tool",
-    "detect_pairwise_interactions": "detect_pairwise_interactions_tool",
-    "detect_cyp_competition": "detect_cyp_competition_tool",
-    "check_contraindications": "check_contraindications_tool",
-    "check_allergy_conflict": "check_allergy_conflict_tool",
-    "check_therapeutic_duplication": "check_therapeutic_duplication_tool",
-    "check_dose_appropriateness": "check_dose_appropriateness_tool",
-    "get_drugs_by_class": "get_drugs_by_class_tool",
-    "full_prescription_check": "full_prescription_check_tool",
-}
+# The short LLM tool name -> MCP tool name map is built dynamically during
+# discovery (see _convert_mcp_tools_to_llm_schema) from whatever names the
+# server actually advertises — there is no hardcoded table, so tools added
+# to the server work automatically.
 
 # ── Context-compaction thresholds ─────────────────────────────────────────────
 _COMPACTION_THRESHOLD = 12   # total messages before compaction triggers
@@ -92,22 +84,29 @@ def _assistant_message(response: dict) -> dict:
 
 def _convert_mcp_tools_to_llm_schema(
     mcp_tools: list[Any],
-) -> list[dict]:
+) -> tuple[list[dict], dict[str, str]]:
     """
     Convert MCP tool descriptions (from ``session.list_tools()``) into the
-    OpenAI-wire tool schema that ``generate_with_tools`` expects.
+    OpenAI-wire tool schema that ``generate_with_tools`` expects, and build
+    the short-name -> MCP-name map used to call each tool back.
 
     MCP tools have fields: ``name``, ``description``, ``inputSchema``.
     The LLM schema needs: ``name``, ``description``, ``parameters``.
-    We also strip the ``_tool`` suffix from the name so the LLM sees the
-    short canonical name (e.g. ``resolve_drug_name`` instead of
-    ``resolve_drug_name_tool``).
+    We strip the ``_tool`` suffix so the LLM sees the short canonical name
+    (e.g. ``resolve_drug_name`` instead of ``resolve_drug_name_tool``) and
+    record ``short_name -> tool.name`` so invocation always uses whatever
+    names the server advertised — no hardcoded map, so tools added to the
+    server work automatically.
+
+    Returns ``(llm_tools, name_map)``.
     """
     llm_tools: list[dict] = []
+    name_map: dict[str, str] = {}
     for tool in mcp_tools:
         short_name = tool.name
         if short_name.endswith("_tool"):
             short_name = short_name[: -len("_tool")]
+        name_map[short_name] = tool.name
         llm_tools.append({
             "name": short_name,
             "description": tool.description or "",
@@ -116,13 +115,13 @@ def _convert_mcp_tools_to_llm_schema(
                 "properties": {},
             },
         })
-    return llm_tools
+    return llm_tools, name_map
 
 
 def _convert_mcp_result(result: Any) -> dict:
     """
-    Convert an MCP ``CallToolResult`` into the standard tool-result dict
-    that ``{status, data, message}`` shape that the conversation expects.
+    Convert an MCP ``CallToolResult`` into the standard ``{status, data,
+    message}`` tool-result dict the conversation expects.
 
     MCP results have:
       - ``result.content`` — list of ``TextContent`` / ``EmbeddedResource``
@@ -134,7 +133,7 @@ def _convert_mcp_result(result: Any) -> dict:
     if result.isError:
         error_text = ""
         if result.content:
-            error_text = result.content[0].text
+            error_text = getattr(result.content[0], "text", "") or str(result.content[0])
         return {"status": "error", "data": {}, "message": error_text or "MCP tool call failed"}
 
     if not result.content:
@@ -169,8 +168,18 @@ def _compact_conversation(messages: list[dict], model: str | None) -> list[dict]
 
     # Preserve system message at index 0; compact everything before the tail.
     system = [messages[0]] if messages and messages[0]["role"] == "system" else []
-    tail = messages[-_RECENT_TAIL_COUNT:]
-    old_part = messages[len(system) : -_RECENT_TAIL_COUNT]
+
+    # Choose the tail boundary so the retained tail never *begins* on a
+    # role:"tool" message. If it did, the assistant tool_calls turn that
+    # produced it would be summarised away, leaving a tool message with no
+    # preceding tool_calls — which the provider rejects (HTTP 400). Walk the
+    # boundary back to include the owning assistant turn.
+    tail_start = max(len(system), len(messages) - _RECENT_TAIL_COUNT)
+    while tail_start > len(system) and messages[tail_start].get("role") == "tool":
+        tail_start -= 1
+
+    tail = messages[tail_start:]
+    old_part = messages[len(system):tail_start]
 
     if not old_part:
         return messages
@@ -224,10 +233,20 @@ def _compact_conversation(messages: list[dict], model: str | None) -> list[dict]
 async def _create_mcp_session():
     """
     Connect to the MedFlow MCP server over stdio and return an initialised
-    ``ClientSession``.
+    ``ClientSession`` together with the ``AsyncExitStack`` that owns its
+    lifecycle.
 
-    This function is extracted so tests can patch ``agent.loop._create_mcp_session``
-    with a mock that returns a fake session without launching a real subprocess.
+    Both the stdio client and the client session are async context managers
+    whose ``__aexit__`` performs the real teardown — terminating the server
+    subprocess and unwinding anyio's cancel scopes. Entering them via
+    ``__aenter__`` without a matching ``__aexit__`` leaks the subprocess and
+    can raise "cancel scope" errors, so we route both through a single
+    ``AsyncExitStack``. The caller MUST ``await stack.aclose()`` when done;
+    because the stack is entered and closed in the same task, teardown is
+    correct.
+
+    Extracted so tests can patch ``agent.loop._create_mcp_session`` with a
+    mock returning a fake session + a no-op stack.
     """
     from mcp.client.stdio import stdio_client, StdioServerParameters
     from mcp.client.session import ClientSession
@@ -236,10 +255,15 @@ async def _create_mcp_session():
         command=sys.executable,
         args=[_MCP_SERVER_PATH],
     )
-    read, write = await stdio_client(params).__aenter__()
-    session = await ClientSession(read, write).__aenter__()
-    await session.initialize()
-    return session, read, write
+    stack = AsyncExitStack()
+    try:
+        read, write = await stack.enter_async_context(stdio_client(params))
+        session = await stack.enter_async_context(ClientSession(read, write))
+        await session.initialize()
+    except Exception:
+        await stack.aclose()
+        raise
+    return session, stack
 
 
 # ── Public API ────────────────────────────────────────────────────────────────
@@ -282,7 +306,7 @@ async def _run_agent_async(
     """
     # ── MCP connection ─────────────────────────────────────────────────────
     try:
-        session, _mcp_read, _mcp_write = await _create_mcp_session()
+        session, mcp_stack = await _create_mcp_session()
     except Exception as exc:
         return {
             "final_answer": (
@@ -307,10 +331,10 @@ async def _run_agent_async(
             session, question, patient_context, max_iterations, model,
         )
     finally:
-        # Clean up the MCP session.
+        # Unwind the stdio client + client session (reverse order) so the
+        # MCP server subprocess is terminated cleanly.
         try:
-            await _mcp_write.aclose()
-            await _mcp_read.aclose()
+            await mcp_stack.aclose()
         except Exception:
             pass
 
@@ -330,7 +354,7 @@ async def _run_agent_loop(
     try:
         tools_result = await session.list_tools()
         mcp_tools = list(tools_result.tools)
-        tools_schema = _convert_mcp_tools_to_llm_schema(mcp_tools)
+        tools_schema, mcp_name_map = _convert_mcp_tools_to_llm_schema(mcp_tools)
     except Exception as exc:
         return {
             "final_answer": f"Failed to discover tools from knowledge graph backend: {exc}",
@@ -398,14 +422,12 @@ async def _run_agent_loop(
             perm = classify_tool(short_name)
             if perm == "action":
                 if not require_confirmation(short_name, arguments):
-                    start = time.perf_counter()
-                    duration_ms = (time.perf_counter() - start) * 1000
                     result = {
                         "status": "cancelled",
                         "data": {},
                         "message": "Cancelled by user — action tool requires confirmation.",
                     }
-                    log_execution(step, tc["id"], short_name, arguments, result, duration_ms)
+                    log_execution(step, tc["id"], short_name, arguments, result, 0.0)
                     messages.append({
                         "role": "tool",
                         "tool_call_id": tc["id"],
@@ -414,7 +436,7 @@ async def _run_agent_loop(
                     continue
 
             # Execute via MCP
-            mcp_name = _SHORT_TO_MCP_NAME.get(short_name, short_name)
+            mcp_name = mcp_name_map.get(short_name, short_name)
             start = time.perf_counter()
             try:
                 mcp_result = await session.call_tool(mcp_name, arguments)
@@ -462,4 +484,3 @@ async def _run_agent_loop(
     trace["messages"] = messages
 
     return {"final_answer": final_answer, "trace": trace}
-

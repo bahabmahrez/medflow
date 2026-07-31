@@ -58,7 +58,10 @@ def require_confirmation(tool_name: str, arguments: dict) -> bool:
         it to return ``True`` or ``False`` without blocking on stdin.
     """
     args_str = json.dumps(arguments, indent=2, ensure_ascii=False)
-    print(f"\n⚠️  ACTION TOOL REQUIRES CONFIRMATION")
+    # ASCII only — the default Windows console (cp1252) raises
+    # UnicodeEncodeError on emoji, which would crash the gate exactly when
+    # an action tool needs confirming.
+    print("\n[!] ACTION TOOL REQUIRES CONFIRMATION")
     print(f"    Tool:   {tool_name}")
     print(f"    Args:   {args_str}")
     while True:

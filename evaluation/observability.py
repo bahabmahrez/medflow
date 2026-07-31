@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import json
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 _RUNS_DIR = os.path.join(os.path.dirname(__file__), "runs")
@@ -55,7 +55,7 @@ class EvalLogger:
             "passed": passed,
             "failures": failures or [],
             "trace": trace,
-            "timestamp": datetime.utcnow().isoformat() + "Z",
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             **extra,
         })
 
@@ -68,7 +68,7 @@ class EvalLogger:
         if not self._rows:
             return ""
 
-        timestamp = datetime.utcnow().strftime("%Y-%m-%d_%H-%M-%S")
+        timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d_%H-%M-%S")
         filename = f"{timestamp}_{self._tier}.json"
         filepath = os.path.join(_RUNS_DIR, filename)
 
