@@ -233,7 +233,7 @@ CASES: list[dict] = [
         "expected_tool_sets": [[], ["check_dose_appropriateness"]],
         "answer_must_contain": [],
         "answer_must_not_contain": [],
-        "is_clarifying_question": False,
+        "is_clarifying_question": True,
         "forbidden_tool_arguments": [],
     },
     {
@@ -257,7 +257,7 @@ CASES: list[dict] = [
         "expected_tool_sets": [[], ["full_prescription_check"]],
         "answer_must_contain": [],
         "answer_must_not_contain": [],
-        "is_clarifying_question": False,
+        "is_clarifying_question": True,
         "forbidden_tool_arguments": [],
     },
     {
@@ -293,7 +293,7 @@ CASES: list[dict] = [
         "expected_tool_sets": [[], ["check_allergy_conflict"]],
         "answer_must_contain": [],
         "answer_must_not_contain": [],
-        "is_clarifying_question": False,
+        "is_clarifying_question": True,
         "forbidden_tool_arguments": [],
     },
     {
@@ -305,11 +305,11 @@ CASES: list[dict] = [
         "expected_tool_sets": [[], ["check_dose_appropriateness"]],
         "answer_must_contain": [],
         "answer_must_not_contain": [],
-        "is_clarifying_question": False,
+        "is_clarifying_question": True,
         "forbidden_tool_arguments": [],
     },
 
-    # ── ADVERSARIAL (8) — Week 3 Tier-3 replay + new tool-misuse cases ───────────
+    # ── ADVERSARIAL
 
     {
         "id": "ADV-01",

@@ -16,6 +16,7 @@ import sys
 import time
 
 from graphrag import ask
+from evaluation.observability import EvalLogger
 from .cases import CASES
 
 
@@ -106,13 +107,14 @@ def score(case: dict, result: dict) -> dict:
 
 # ── Runner ─────────────────────────────────────────────────────────────────────
 
-def run_cases(cases: list[dict], delay: float = 0.5) -> list[dict]:
+def run_cases(cases: list[dict], delay: float = 0.5, logger: EvalLogger | None = None) -> list[dict]:
     """
     Execute each case through the pipeline and score it.
 
     Args:
         cases: list of case dicts from cases.py
         delay: seconds to wait between calls (avoid API rate limits)
+        logger: optional EvalLogger instance for observability output
 
     Returns:
         list of {case, scored} dicts
@@ -156,6 +158,18 @@ def run_cases(cases: list[dict], delay: float = 0.5) -> list[dict]:
         except Exception as exc:
             scored = {"passed": False, "failures": [str(exc)], "result": pipeline_result or {}}
             print(f"  [ERROR] {exc}")
+
+        # Log to observability file regardless of pass/fail
+        if logger is not None:
+            logger.log_run(
+                case_id=case["id"],
+                question=case["question"],
+                final_answer=(pipeline_result or {}).get("answer", ""),
+                trace=(pipeline_result or {}),
+                passed=scored["passed"],
+                failures=scored["failures"],
+                tier=case.get("tier", "unknown"),
+            )
 
         results.append({"case": case, "scored": scored})
         if i < len(cases):
@@ -233,9 +247,15 @@ def main() -> None:
         target = tier_map[args.tier]
         cases = [c for c in CASES if c["tier"] == target]
 
+    # Determine tier label for the logger
+    tier_label = args.tier or "all"
+    logger = EvalLogger(tier=tier_label)
+
     print(f"\nRunning {len(cases)} case(s)…\n")
-    results = run_cases(cases, delay=args.delay)
+    results = run_cases(cases, delay=args.delay, logger=logger)
     report(results)
+
+    logger.close()
 
     any_failed = any(not r["scored"]["passed"] for r in results)
     sys.exit(1 if any_failed else 0)
@@ -243,3 +263,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+

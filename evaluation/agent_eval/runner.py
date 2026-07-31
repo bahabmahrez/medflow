@@ -17,6 +17,7 @@ import time
 
 from agent import run_agent
 from agent.trace import all_tool_names, pretty_print
+from evaluation.observability import EvalLogger
 from .cases import CASES
 
 # Fixed severity-lead phrases from llm/system_prompt.txt — used to keep the
@@ -101,7 +102,7 @@ def score_agent(case: dict, run_result: dict) -> dict:
 
 # ── Runner ───────────────────────────────────────────────────────────────────
 
-def run_cases(cases: list[dict], delay: float = 0.5) -> list[dict]:
+def run_cases(cases: list[dict], delay: float = 0.5, logger: EvalLogger | None = None) -> list[dict]:
     results = []
     for i, case in enumerate(cases, 1):
         print(f"  [{i:02d}/{len(cases):02d}] {case['id']}  {case['description'][:55]}", end="", flush=True)
@@ -133,6 +134,18 @@ def run_cases(cases: list[dict], delay: float = 0.5) -> list[dict]:
         except Exception as exc:
             scored = {"passed": False, "failures": [str(exc)], "trace": (run_result or {}).get("trace", {})}
             print(f"  [ERROR] {exc}")
+
+        # Log to observability file regardless of pass/fail
+        if logger is not None:
+            logger.log_run(
+                case_id=case["id"],
+                question=case["question"],
+                final_answer=(run_result or {}).get("final_answer", ""),
+                trace=(run_result or {}).get("trace", {}),
+                passed=scored["passed"],
+                failures=scored["failures"],
+                tier=case.get("tier", "unknown"),
+            )
 
         results.append({"case": case, "scored": scored})
         if i < len(cases):
@@ -202,12 +215,18 @@ def main() -> None:
 
     cases = CASES if not args.tier else [c for c in CASES if c["tier"] == args.tier]
 
+    tier_label = args.tier or "all"
+    logger = EvalLogger(tier=tier_label)
+
     print(f"\nRunning {len(cases)} case(s)...\n")
-    results = run_cases(cases, delay=args.delay)
+    results = run_cases(cases, delay=args.delay, logger=logger)
     report(results)
+
+    logger.close()
 
     sys.exit(1 if any(not r["scored"]["passed"] for r in results) else 0)
 
 
 if __name__ == "__main__":
     main()
+
