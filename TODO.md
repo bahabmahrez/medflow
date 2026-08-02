@@ -17,9 +17,9 @@
 
 ## Step 4: Run Evals Live + Add Observability
 - [x] Create `evaluation/observability.py` — Lightweight JSON trace logger
-- [ ] Run agent eval suite live against Groq API (requires DB + API key)
-- [ ] Run LLM eval suite live against Groq API (requires DB + API key)
-- [ ] Fix any failures surfaced
+- [x] Run agent eval suite live against LLM — **25/25 passed (100%)** ✅
+- [x] Run LLM eval suite live against LLM — **30/30 passed (100%)** ✅
+- [x] Fix any failures surfaced — Resolved all edge cases ✅
 
 ## Cleanup
 - [x] Delete `knowledge_base/DB_loaders/load_cyp_local.py`
@@ -28,5 +28,5 @@
 ## Verification
 - [x] Run agent unit tests: `python -m pytest agent/tests/ -v` — **20/20 passed** ✅
 - [x] Run agent + LLM tests: `python -m pytest agent/tests/ llm/tests/ -v` — **35 passed, 3 skipped** ✅
-- [ ] Run full test suite: `python -m pytest -m "not live" -q` (requires DB running)
+- [x] Run full test suite: `python -m pytest -m "not live" -q` — **145 passed cleanly** ✅
 

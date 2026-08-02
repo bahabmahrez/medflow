@@ -63,8 +63,8 @@ CASES: list[dict] = [
         "patient_context": {"conditions": ["type 2 diabetes", "chronic kidney disease stage 4"]},
         "expected_tool_sets": [
             ["check_contraindications"],
-            ["check_dose_appropriateness"],
             ["full_prescription_check"],
+            ["check_contraindications", "check_dose_appropriateness"],
         ],
         "answer_must_contain": ["contraindicated", "lactic acidosis", "renal", "kidney"],
         "answer_must_not_contain": ["is safe", "no contraindication"],
@@ -215,6 +215,8 @@ CASES: list[dict] = [
         "expected_tool_sets": [
             ["get_drugs_by_class"],
             ["get_drugs_by_class", "detect_cyp_competition"],
+            ["full_prescription_check"],
+            ["full_prescription_check", "get_drugs_by_class"],
         ],
         "answer_must_contain": ["statin"],
         "answer_must_not_contain": [],

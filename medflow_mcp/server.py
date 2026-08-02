@@ -123,6 +123,7 @@ def get_drugs_by_class_tool(drug_class: str) -> str:
 def full_prescription_check_tool(
     prescription: list[dict] | None = None,
     patient_meds: list[str] | None = None,
+    active_meds: list[str] | None = None,
     conditions: list[str] | None = None,
     allergies: list[str] | None = None,
     labs: dict | None = None,
@@ -131,9 +132,10 @@ def full_prescription_check_tool(
     patient's active meds, conditions, allergies, and labs in one call.
 
     prescription: [{"drug": str, "dose"?: str}, ...]"""
+    meds = patient_meds or active_meds
     return _json(full_prescription_check(
         prescription,
-        patient_meds=patient_meds,
+        patient_meds=meds,
         conditions=conditions,
         allergies=allergies,
         labs=labs,

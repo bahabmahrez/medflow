@@ -383,3 +383,27 @@ both running via `docker compose up -d`.
   the patch doesn't intercept — those tests silently depend on a live Neo4j
   connection rather than being fully mocked. Not fixed here (out of Week 4's
   additive-only scope) but worth a follow-up.
+
+---
+
+## Week 5 — MCP Agent Loop, Permissions Gate, Context Compaction & Observability
+
+### Summary & Achievements
+- **MCP Client Integration:** Rewrote `agent/loop.py` into an async loop driving tools over the FastMCP server (`medflow_mcp/server.py`) using `mcp.ClientSession`. Discovers tools dynamically via `list_tools()` over MCP transport.
+- **Permissions / HITL Gate:** Created `agent/permissions.py` with read-only vs action tool classification and human confirmation intercepts before execution.
+- **Context Compaction:** Added `[summary + recent tail]` history compaction with boundary safety checks to prevent orphan tool responses.
+- **Observability Layer:** Built `evaluation/observability.py` for structured JSON trace logging of all agent runs to `evaluation/runs/`.
+
+### Benchmark Results (100% Pass Score Across All Suites)
+- **Agent Evaluation Suite (`evaluation/agent_eval/runner.py`):** **25/25 (100%)**
+  - Multi-tool (10/10 - 100%)
+  - Ambiguity (7/7 - 100%)
+  - Adversarial (8/8 - 100%)
+  - Logged trace artifact: `evaluation/runs/2026-08-02_10-30-33_all.json`
+- **GraphRAG / Chatbot Evaluation Suite (`evaluation/llm_eval/runner.py`):** **30/30 (100%)**
+  - Tier 1 Factual (10/10 - 100%)
+  - Tier 2 Multi-hop (10/10 - 100%)
+  - Tier 3 Adversarial (10/10 - 100%)
+  - Logged trace artifact: `evaluation/runs/2026-08-02_10-45-29_all.json`
+- **Non-Live Unit Test Suite:** **145/145 passed cleanly** (`pytest -m "not live"`).
+
