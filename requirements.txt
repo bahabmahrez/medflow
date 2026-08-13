@@ -14,3 +14,6 @@ openai>=1.0
 
 # Week 5 — MCP server (Model Context Protocol)
 mcp>=1.25
+
+# Week 6 — pharmacist interface (Milestone 3)
+streamlit>=1.40
