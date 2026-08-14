@@ -292,13 +292,26 @@ def build_contraindication_alert(item: dict, drug: str, index: int) -> dict:
     } else MAJOR
     action = SEVERITY_TO_ACTION[severity]
 
-    chain = [
-        f"The patient's record lists the condition '{condition}'.",
-        f"This matches the knowledge-base concept '{matched}'"
-        + (f" (ICD-11 {icd})" if icd else "") + ".",
+    generalised = bool(item.get("generalised"))
+    matched_via = item.get("matched_via") or condition
+
+    chain = [f"The patient's record lists the condition '{condition}'."]
+    if generalised:
+        # Say plainly that this came from the concept hierarchy rather than a
+        # direct match - the pharmacist is entitled to see the inference.
+        chain.append(
+            f"The knowledge base classifies '{matched_via}' as a form of "
+            f"'{matched}'" + (f" (ICD-11 {icd})" if icd else "") + "."
+        )
+    else:
+        chain.append(
+            f"This matches the knowledge-base concept '{matched}'"
+            + (f" (ICD-11 {icd})" if icd else "") + "."
+        )
+    chain.append(
         f"{_cap(drug)} is recorded as contraindicated for this condition"
-        + (f" (source: {source})" if source else "") + ".",
-    ]
+        + (f" (source: {source})" if source else "") + "."
+    )
     if reason:
         chain.append(f"Reason - {reason}")
     chain.append(
@@ -383,23 +396,38 @@ def build_duplication_alert(item: dict, index: int) -> dict:
     same_as  = item.get("same_as", inn)
     action = CONTACT_PRESCRIBER
 
-    chain = [
-        f"{_cap(same_as)} is on the new prescription.",
-        f"The patient's active medication '{existing}' resolves to the same molecule "
-        f"({inn}).",
-        "The two are therefore the same active substance under different names.",
-        "Dispensing both would double the daily dose without the patient realising it.",
-        f"Recommended handling is to {_ACTION_PHRASE[action]}.",
-    ]
+    # The active list may hold the molecule under a brand name or under the INN
+    # itself. Saying "atorvastatin is already taken as 'atorvastatin'" is
+    # tautological, so only describe a rename when there genuinely is one.
+    renamed = (existing or "").strip().lower() != (inn or "").strip().lower()
+
+    chain = [f"{_cap(same_as)} is on the new prescription."]
+    if renamed:
+        chain.append(
+            f"The patient's active medication '{existing}' resolves to the same "
+            f"molecule ({inn})."
+        )
+        chain.append("The two are therefore the same active substance under different names.")
+    else:
+        chain.append(f"{_cap(inn)} is already on the patient's active medication list.")
+    chain.append(
+        "Dispensing both would double the daily dose without the patient realising it."
+    )
+    chain.append(f"Recommended handling is to {_ACTION_PHRASE[action]}.")
 
     return _make_alert(
         alert_id=f"DUP-{index:02d}",
         alert_type=TYPE_DUPLICATION,
         severity=MAJOR,
-        title=f"{_cap(same_as)} - already taken as '{existing}'",
+        title=(
+            f"{_cap(same_as)} - already taken as '{existing}'" if renamed
+            else f"{_cap(same_as)} - already on the active medication list"
+        ),
         explanation=(
             f"Therapeutic duplication: '{existing}' is {inn}, the same molecule as the "
-            f"newly prescribed {same_as}."
+            f"newly prescribed {same_as}." if renamed else
+            f"Therapeutic duplication: {inn} is already on the patient's active "
+            f"medication list."
         ),
         reasoning_chain=chain,
         drugs_involved=[same_as, existing],

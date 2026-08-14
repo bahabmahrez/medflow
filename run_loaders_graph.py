@@ -22,6 +22,9 @@ LOADERS = [
     ("Molecular targets (ChEMBL)",         "knowledge_base/graph_loaders/load_molecular_targets.py"),
     ("Drug indications (treats)",          "knowledge_base/graph_loaders/load_treats.py"),
     ("Synthetic patients",                 "patients/synthetic/load_patients_graph.py"),
+    # Runs last: patient records create DiseaseConcept nodes carrying only an
+    # ICD-11 code, so names and the IS_A hierarchy are applied once they exist.
+    ("Disease names + IS_A hierarchy",     "knowledge_base/graph_loaders/load_disease_hierarchy.py"),
 ]
 
 GREEN = "\033[92m"; RED = "\033[91m"; RESET = "\033[0m"; BOLD = "\033[1m"

@@ -125,3 +125,46 @@ def test_normal_patient_no_flags():
     )
     assert r["status"] == "not_found"
     assert r["data"]["flags"] == []
+
+
+# ── DiseaseConcept hierarchy (regression — Week 6 M4) ─────────────────────────
+# Contraindications are recorded against general concepts ("Renal impairment",
+# N18) while patient records carry specific ones ("Chronic kidney disease
+# stage 4", GB61). Before the IS_A hierarchy existed the two never met, so
+# metformin in CKD-4 raised no contraindication at all — a silent false
+# negative on a lactic-acidosis risk. These lock that behaviour in.
+
+def test_specific_condition_reaches_general_contraindication():
+    """CKD stage 4 must find the contraindication recorded against N18."""
+    r = check_contraindications("metformin", ["Chronic kidney disease stage 4"])
+    assert r["status"] == "found"
+    ci = r["data"]["contraindications"]
+    assert len(ci) >= 1
+    assert ci[0]["severity"] == "contraindicated"
+    assert ci[0]["generalised"] is True, "should be reached via the IS_A hierarchy"
+    assert ci[0]["matched_via"] == "Chronic kidney disease stage 4"
+
+
+def test_hierarchy_traversal_also_works_by_icd_code():
+    r = check_contraindications("metformin", ["GB61"])
+    assert r["status"] == "found"
+    assert r["data"]["contraindications"][0]["generalised"] is True
+
+
+def test_direct_match_is_not_flagged_as_generalised():
+    r = check_contraindications("metformin", ["renal impairment"])
+    assert r["status"] == "found"
+    assert r["data"]["contraindications"][0]["generalised"] is False
+
+
+def test_one_risk_is_reported_once_despite_duplicate_concept_codes():
+    """'Peptic ulcer disease' exists under two codes; report the risk once."""
+    r = check_contraindications("ibuprofen", ["Peptic ulcer disease"])
+    assert r["status"] == "found"
+    assert len(r["data"]["contraindications"]) == 1
+
+
+def test_unrelated_condition_does_not_inherit_a_contraindication():
+    """The hierarchy must not create false positives."""
+    r = check_contraindications("metformin", ["Type 2 diabetes mellitus"])
+    assert r["data"]["contraindications"] == []

@@ -39,16 +39,32 @@ def check_contraindications(drug: str, conditions: list[str]) -> dict:
     try:
         found = []
         for condition in conditions:
+            # Match the patient's condition to a concept, then walk the IS_A
+            # hierarchy up to whatever the drug is actually contraindicated for.
+            # Contraindications are recorded against general concepts ("Renal
+            # impairment") while patients carry specific ones ("Chronic kidney
+            # disease stage 4"); without this traversal the two never meet.
             result = driver.execute_query(
                 """
-                MATCH (m:Molecule {inn: $inn})-[r:CONTRAINDICATED_FOR]->(dc:DiseaseConcept)
-                WHERE toLower(dc.condition_name) CONTAINS toLower($condition)
-                   OR dc.icd11_code = $condition
-                RETURN dc.condition_name AS condition_name,
-                       dc.icd11_code     AS icd_code,
-                       r.severity        AS severity,
-                       r.reason          AS reason,
-                       r.source          AS source
+                MATCH (pc:DiseaseConcept)
+                WHERE toLower(pc.condition_name) CONTAINS toLower($condition)
+                   OR pc.icd11_code = $condition
+                MATCH path = (pc)-[:IS_A*0..3]->(target:DiseaseConcept)
+                MATCH (m:Molecule {inn: $inn})-[r:CONTRAINDICATED_FOR]->(target)
+                // The same concept can be reachable by several routes (a
+                // duplicate code, or a code plus its parent). Keep the shortest
+                // route per contraindication so one risk is reported once.
+                WITH target, r, pc, length(path) AS hops
+                ORDER BY hops
+                WITH target, r,
+                     head(collect({via: pc.condition_name, hops: hops})) AS best
+                RETURN target.condition_name AS condition_name,
+                       target.icd11_code     AS icd_code,
+                       best.via              AS matched_via,
+                       best.hops > 0         AS generalised,
+                       r.severity            AS severity,
+                       r.reason              AS reason,
+                       r.source              AS source
                 """,
                 inn=inn, condition=condition,
             )
@@ -57,6 +73,8 @@ def check_contraindications(drug: str, conditions: list[str]) -> dict:
                     "input_condition":  condition,
                     "matched_concept":  rec["condition_name"],
                     "icd_code":         rec["icd_code"],
+                    "matched_via":      rec["matched_via"],
+                    "generalised":      bool(rec["generalised"]),
                     "severity":         rec["severity"],
                     "reason":           rec["reason"],
                     "source":           rec["source"],
