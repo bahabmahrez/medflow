@@ -358,3 +358,56 @@ def test_context_compaction_triggers_at_threshold():
     ]
     assert len(summary_messages) >= 1, "Expected at least one summary message in the conversation"
 
+
+
+# ── Provider failure classification (Week 6 M4) ───────────────────────────────
+# Every provider failure used to be reported as "malformed tool request". During
+# the M4 evaluation that message was shown for an exhausted token quota, which
+# sent debugging in the wrong direction for a while. The cause must be named.
+
+def test_rate_limit_is_reported_as_a_quota_problem_not_a_model_fault():
+    session = _mock_session()
+    stack = _mock_stack()
+    err = RuntimeError(
+        "Error code: 429 - rate_limit_exceeded ... tokens per day (TPD): Limit 100000"
+    )
+
+    with patch("agent.loop.generate_with_tools", side_effect=err):
+        with patch("agent.loop._create_mcp_session",
+                   new=AsyncMock(return_value=(session, stack))):
+            result = run_agent("Is metformin safe here?")
+
+    trace = result["trace"]
+    assert trace["stopped_reason"] == "rate_limited"
+    assert "usage limit" in result["final_answer"]
+    assert "quota problem, not a clinical one" in result["final_answer"]
+    assert "malformed" not in result["final_answer"]
+    assert "429" in trace["error"], "the raw provider error is kept for debugging"
+
+
+def test_bad_credentials_are_reported_as_credentials():
+    session = _mock_session()
+    stack = _mock_stack()
+
+    with patch("agent.loop.generate_with_tools",
+               side_effect=RuntimeError("Error code: 401 - invalid api key")):
+        with patch("agent.loop._create_mcp_session",
+                   new=AsyncMock(return_value=(session, stack))):
+            result = run_agent("Is metformin safe here?")
+
+    assert result["trace"]["stopped_reason"] == "auth_error"
+    assert "credentials" in result["final_answer"]
+
+
+def test_a_genuine_malformed_tool_call_still_says_so():
+    session = _mock_session()
+    stack = _mock_stack()
+
+    with patch("agent.loop.generate_with_tools",
+               side_effect=RuntimeError("400 tool_use_failed: bad schema")):
+        with patch("agent.loop._create_mcp_session",
+                   new=AsyncMock(return_value=(session, stack))):
+            result = run_agent("Is metformin safe here?")
+
+    assert result["trace"]["stopped_reason"] == "llm_error"
+    assert "malformed tool request" in result["final_answer"]

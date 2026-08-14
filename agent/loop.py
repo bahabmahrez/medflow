@@ -64,6 +64,43 @@ def _safe_generate_with_tools(
         return None, str(exc)
 
 
+_RATE_LIMIT_MARKERS = (
+    "rate limit", "rate_limit", "429", "too many requests",
+    "tokens per day", "tokens per minute", "quota",
+)
+_AUTH_MARKERS = ("401", "403", "invalid api key", "unauthorized", "authentication")
+
+
+def _classify_llm_failure(error: str) -> tuple[str, str]:
+    """
+    Turn a provider exception into ``(stopped_reason, message)``.
+
+    Every provider failure used to be reported as "the model produced a
+    malformed tool request". That is only one of the ways this can fail, and
+    saying it for a quota error or a bad key sends whoever is debugging in
+    entirely the wrong direction - the M4 evaluation lost time to exactly that.
+    """
+    lowered = (error or "").lower()
+
+    if any(marker in lowered for marker in _RATE_LIMIT_MARKERS):
+        return "rate_limited", (
+            "I couldn't complete this analysis because the language model's usage "
+            "limit has been reached. This is a quota problem, not a clinical one - "
+            "the knowledge base is unaffected. Please retry later or check the "
+            "provider plan."
+        )
+    if any(marker in lowered for marker in _AUTH_MARKERS):
+        return "auth_error", (
+            "I couldn't reach the language model: the API credentials were "
+            "rejected. Please check the provider key configuration."
+        )
+    return "llm_error", (
+        "I wasn't able to complete this analysis - the model produced a malformed "
+        "tool request. Please rephrase the question or provide the missing values "
+        "explicitly."
+    )
+
+
 def _assistant_message(response: dict) -> dict:
     """Build the OpenAI-wire assistant turn to append to conversation history."""
     msg: dict[str, Any] = {"role": "assistant", "content": response["content"] or None}
@@ -395,12 +432,8 @@ async def _run_agent_loop(
             trace["steps"].append(
                 new_step(iteration, f"[LLM call failed: {error}]", [])
             )
-            final_answer = (
-                "I wasn't able to complete this analysis — the model produced a "
-                "malformed tool request. Please rephrase the question or provide "
-                "the missing values explicitly."
-            )
-            stopped_reason = "llm_error"
+            stopped_reason, final_answer = _classify_llm_failure(error)
+            trace["error"] = error
             break
 
         messages.append(_assistant_message(response))
@@ -467,10 +500,11 @@ async def _run_agent_loop(
             trace["steps"].append(
                 new_step(iteration, f"[LLM call failed: {error}]", [])
             )
+            stopped_reason, _ = _classify_llm_failure(error)
+            trace["error"] = error
             final_answer = (
                 "I wasn't able to synthesise a final answer due to a model/provider error."
             )
-            stopped_reason = "llm_error"
         else:
             messages.append(_assistant_message(response))
             trace["steps"].append(new_step(iteration, response["content"], []))

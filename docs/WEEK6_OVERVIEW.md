@@ -131,32 +131,41 @@ These are safety invariants, each with a test:
 
 ---
 
-## 6. Open items for Milestone 4
+## 6. Milestone 4 — final evaluation
 
-**Blocking, and the first thing to fix:**
+**Done (2026-08-14).** Full results and the production-readiness assessment are in
+[WEEK6_M4_FINAL_EVALUATION.md](WEEK6_M4_FINAL_EVALUATION.md). Run everything with
+`python -m evaluation.final_eval.run_all`.
 
-> **Contraindications currently never fire.** The graph holds
-> `Renal impairment (N18)` and `Chronic kidney disease stage 4 (GB61)` as two
-> unlinked concepts; metformin's `CONTRAINDICATED_FOR` edge points at the first,
-> patients carry the second. Across the loaded population, **11 of 11 distinct
-> patient conditions have no contraindication edge targeting them**, so the
-> `metformin_ckd` trap patient reports only a dose note. This is a false
-> negative on a safety check and directly fails M4's sensitivity target. Fix
-> belongs in the knowledge-base layer — link the concepts, or re-point the edges
-> onto the concepts patients actually carry.
+| Suite | Result |
+|---|---|
+| Sensitivity (8 trap patients) | **8/8 (100%)** |
+| Specificity (10 safe cases) | **0 false alarms**, 0.2 noise/script |
+| Severity accuracy | **0 mapping bugs**; 4 gradings queued for the pharmacist |
+| Latency under load | **p99 1.61 s** at 8 concurrent (budget 2 s) |
+| Adversarial battery (live Groq) | **8/8 (100%)** |
 
-Also open:
+**The blocking defect is fixed.** Contraindications fired for nobody because
+`CONTRAINDICATED_FOR` edges point at general concepts (`Renal impairment`, N18)
+while patients carry specific ones (`CKD stage 4`, GB61), with zero
+concept-to-concept edges — plus ~30 concepts named with their own ICD code. Fixed
+in the knowledge-base layer:
+[load_disease_hierarchy.py](../knowledge_base/graph_loaders/load_disease_hierarchy.py)
+(idempotent, runs last in `run_loaders_graph.py`) and an `IS_A*0..3` traversal in
+`check_contraindications`, pinned by 5 regression tests.
 
-* **Alert volume.** A 10-drug patient produces 26 alerts. Merging pairs cut it
-  from 39, but M4's "specificity / alert fatigue" measure needs a real look.
-* **Severity grading to sanity-check.** `fluoxetine + sertraline` (serotonin
-  syndrome trap) is graded `a_prendre_en_compte` → surfaces as **minor**. Worth
-  questioning with the pharmacist.
-* **Judgement calls to validate with the real pharmacist:** the 90-day memory
-  window, the "never demote contraindicated" rule, and collapsing reasoning
-  chains by default.
-* Record the M4 evaluation: sensitivity (8 traps), specificity, severity
-  accuracy, latency under load, plus the adversarial battery from earlier weeks.
+**Still open:**
+
+* **The real pharmacist session has not happened** — the one M4 requirement that
+  cannot be simulated. Everything needed to run it is in
+  [PHARMACIST_SESSION_KIT.md](PHARMACIST_SESSION_KIT.md); write it up as §7 of the
+  evaluation doc the same day.
+* **Four severity gradings are arguable** — `omeprazole + clopidogrel`,
+  `diclofenac + methotrexate`, `verapamil + simvastatin`, `rifampicin + warfarin`.
+* **Judgement calls to validate:** the 90-day memory window, "never demote
+  contraindicated", and pair merging.
+* **Known ceilings:** ~7 scans/s throughput; 51 molecules is a demonstration
+  corpus, not a formulary; specificity is measured on 10 self-selected cases.
 
 ---
 
