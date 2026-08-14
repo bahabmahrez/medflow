@@ -2,7 +2,7 @@
 
 **Date:** 2026-08-14 · **Model of record:** Groq `llama-3.3-70b-versatile` (agent
 path) · **Graph:** Neo4j 5, 51 molecules / 38 brands / 48 disease concepts /
-50 patients · **Test suite:** 243 passing
+50 patients · **Test suite:** 246 passing
 
 Run the whole measurable assessment with:
 
@@ -22,7 +22,7 @@ python -m evaluation.final_eval.run_all
 | **Severity accuracy** | **0 mapping bugs**, 8/12 vs reference | faithful reporting | [severity_accuracy.py](../evaluation/final_eval/severity_accuracy.py) |
 | **Latency under load** | **p99 1.61 s at 8 concurrent** | < 2 s | [latency_load.py](../evaluation/final_eval/latency_load.py) |
 | **Adversarial battery** | **8/8 (100%)** live on Groq | must not fabricate | `evaluation/agent_eval` |
-| Full 25-case agent suite | **unmeasured** — daily token cap hit (§6) | — | `evaluation/agent_eval` |
+| Full 25-case agent suite | **unmeasured** — daily token cap hit (§7) | — | `evaluation/agent_eval` |
 | **Real pharmacist test** | **not yet run** | qualitative | [PHARMACIST_SESSION_KIT.md](PHARMACIST_SESSION_KIT.md) |
 
 Sensitivity and specificity are reported separately and never averaged: they
@@ -30,7 +30,87 @@ trade against each other, and a combined score would hide whichever is worse.
 
 ---
 
-## 2. Sensitivity - the number that must be 100%
+## 2. Architecture
+
+### Two paths, deliberately separate
+
+The system answers two different questions and uses a different design for each.
+This is the central architectural decision.
+
+```
+   PHARMACIST (Streamlit)                   ANALYST / MCP CLIENT
+        |                                          |
+        v                                          v
+   engine/reactive.py                        agent/loop.py
+   scan_prescription()                       run_agent()
+        |                                          |
+   deterministic:                            LLM picks tools over MCP,
+   fan out every check                       multi-turn, iteration cap 8,
+   concurrently, no LLM                      permission gate, compaction
+        |                                          |
+        +--------------> query/ <------------------+
+                    10 safety functions
+                            |
+              +-------------+--------------+
+              v                            v
+        Neo4j (clinical graph)     PostgreSQL (patients,
+        interactions, CYP,          labs, memory: decisions
+        concepts + IS_A             and scan history)
+```
+
+**Reactive path** - the counter workflow. Deterministic, concurrent, and
+LLM-free: reasoning chains are composed from graph data by `engine/alerts.py`.
+That is what makes 300 ms achievable *and* what makes fabrication structurally
+impossible - if the graph holds no mechanism, no mechanism is stated.
+
+**Conversational path** - the agent from Week 5. The LLM discovers tools via MCP
+(`list_tools`), chains them, and is bounded by an iteration cap, a permission
+gate, and context compaction. This is where the adversarial surface lives.
+
+Both call the *same* `query/` layer, so a clinical rule never has two
+implementations that can drift apart.
+
+### Modules
+
+| Module | Responsibility | Why separate |
+|---|---|---|
+| [query/](../query/) | 10 safety functions over the graph | The single source of clinical truth for both paths |
+| [engine/](../engine/) | `scan_prescription()` - concurrent checks, severity-ordered alert report | The reactive path must be fast and deterministic |
+| [memory/](../memory/) | Decisions per patient+pharmacist; reviewed findings return as reminders | Independent of the engine so an outage cannot block a safety check |
+| [agent/](../agent/) | MCP client loop, permissions, compaction, trace | The conversational path |
+| [medflow_mcp/](../medflow_mcp/) | FastMCP server exposing the 10 tools | Makes the tools reusable by any MCP client |
+| [interface/](../interface/) | Streamlit scan screen; patient loading; prescriber drafting | Testable logic kept outside Streamlit |
+
+### How the 2-second budget is met
+
+Three things, in order of impact:
+
+1. **One pooled Neo4j driver.** Each `query/` call used to build its own driver;
+   a 7-drug scan created 40+. `query/_neo4j.py` now hands out a proxy over a
+   shared pooled driver whose `close()` is a deliberate no-op.
+2. **Batched, cached name resolution.** `resolve_many()` resolves the whole
+   prescription in one round-trip and warms an in-process cache, so the
+   per-check resolutions that follow are all hits.
+3. **Concurrent fan-out.** Independent checks run on a thread pool sharing that
+   one driver.
+
+Fail-fast timeouts sit underneath all of it: a database that is down must fail
+in seconds, because a slow failure at the counter is worse than a clear one.
+
+### Safety properties designed in
+
+- **No LLM in the reactive hot path** - cannot be prompt-injected, cannot invent
+  an interaction.
+- **Absence of data is never silence.** An unreachable graph reports *"NO safety
+  check was performed"*; an unresolvable drug says *"absence of an alert is not
+  evidence of safety"*.
+- **Memory never softens the top severity band**, and an escalated finding
+  resurfaces as new.
+- **Reasoning chains omit what the graph lacks** rather than filling gaps.
+
+---
+
+## 3. Sensitivity - the number that must be 100%
 
 Every trap patient is a known dangerous scenario. A miss here is a patient
 harmed, so this is the one metric with no acceptable shortfall.
@@ -85,7 +165,7 @@ The pharmacist sees the inference stated plainly rather than hidden:
 
 ---
 
-## 3. Specificity - not crying wolf
+## 4. Specificity - not crying wolf
 
 Ten routine, safe prescriptions. Findings are graded because not all noise is
 equal: a CONTRAINDICATED/MAJOR alert on a safe script is a **false alarm** that
@@ -109,7 +189,7 @@ needs a consecutive run of unselected prescriptions.
 
 ---
 
-## 4. Severity accuracy - two different questions
+## 5. Severity accuracy - two different questions
 
 The grade drives the action, so it was tested along two axes that are usually
 conflated:
@@ -139,7 +219,7 @@ along.
 
 ---
 
-## 5. Latency under load
+## 6. Latency under load
 
 The 2-second promise is made to a pharmacist with a patient at the counter, and a
 promise that only holds on an idle machine is worth little. Heavy 10-drug scan
@@ -163,7 +243,7 @@ scan, not the engine.
 
 ---
 
-## 6. Adversarial battery
+## 7. Adversarial battery
 
 Run live against Groq `llama-3.3-70b-versatile` - the first live agent run of the
 project.
@@ -200,6 +280,16 @@ days. **It is recorded as unmeasured rather than reported as 4/25**, because
 publishing a throttled score as a quality figure would be straightforwardly
 misleading.
 
+The **30-case GraphRAG suite** (`evaluation/llm_eval`, 10 of them adversarial) is
+blocked by the same cap and is likewise unmeasured today - a retry after the
+budget partially recovered got four cases in before hitting
+`Used 99375 / Limit 100000`. Both suites are cheap to run on a fresh day:
+
+```bash
+python -m evaluation.agent_eval.runner --delay 2     # 25 agentic cases
+python -m evaluation.llm_eval.runner  --delay 2      # 30 GraphRAG cases
+```
+
 **A real bug this uncovered.** Every provider failure - including the 429 - was
 reported to the user as *"the model produced a malformed tool request"*. That
 blames the model for a quota problem and cost real debugging time during this
@@ -209,7 +299,7 @@ in `trace["error"]`, and three tests pin the behaviour.
 
 ---
 
-## 7. Real pharmacist test - NOT YET RUN
+## 8. Real pharmacist test - NOT YET RUN
 
 The remaining Milestone 4 requirement. It cannot be simulated, so it is recorded
 as outstanding rather than approximated.
@@ -222,7 +312,7 @@ Write the session up here as §7 the same day it happens.
 
 ---
 
-## 8. Production-readiness assessment (honest)
+## 9. Production-readiness assessment (honest)
 
 ### What is genuinely ready
 - **Detection of the modelled dangers** is reliable: 8/8 traps, 0 false alarms,
@@ -262,7 +352,7 @@ formulary - in that order, because the session may change what "correct" means.
 
 ---
 
-## 9. Demo walkthrough - the reactive flow
+## 10. Demo walkthrough - the reactive flow
 
 Ten minutes, showing the mechanism rather than just the output.
 
@@ -307,7 +397,7 @@ invent an interaction.
 
 ---
 
-## 10. Reproducing everything
+## 11. Reproducing everything
 
 ```bash
 docker compose up -d
