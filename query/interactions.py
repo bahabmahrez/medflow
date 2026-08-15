@@ -61,27 +61,27 @@ def detect_pairwise_interactions(drug_list: list[str]) -> dict:
     driver = connect()
     try:
         interactions = []
-        for inn_a, inn_b in pairs:
-            result = driver.execute_query(
-                """
-                MATCH (a:Molecule {inn: $inn_a})-[r:INTERACTS_WITH]-(b:Molecule {inn: $inn_b})
-                RETURN a.inn AS drug_a, b.inn AS drug_b,
-                       r.severity_active AS severity,
-                       r.clinical_effect AS effect,
-                       r.management      AS mechanism,
-                       r.source_confidence AS source
-                """,
-                inn_a=inn_a, inn_b=inn_b,
-            )
-            for rec in result.records:
-                interactions.append({
-                    "drug_a":    rec["drug_a"],
-                    "drug_b":    rec["drug_b"],
-                    "severity":  rec["severity"],
-                    "effect":    rec["effect"],
-                    "mechanism": rec["mechanism"],
-                    "source":    rec["source"],
-                })
+        result = driver.execute_query(
+            """
+            MATCH (a:Molecule)-[r:INTERACTS_WITH]-(b:Molecule)
+            WHERE a.inn IN $inns AND b.inn IN $inns AND elementId(a) < elementId(b)
+            RETURN a.inn AS drug_a, b.inn AS drug_b,
+                   r.severity_active AS severity,
+                   r.clinical_effect AS effect,
+                   r.management      AS mechanism,
+                   r.source_confidence AS source
+            """,
+            inns=inns,
+        )
+        for rec in result.records:
+            interactions.append({
+                "drug_a":    rec["drug_a"],
+                "drug_b":    rec["drug_b"],
+                "severity":  rec["severity"],
+                "effect":    rec["effect"],
+                "mechanism": rec["mechanism"],
+                "source":    rec["source"],
+            })
 
         interactions.sort(key=lambda x: _rank(x["severity"]))
 
@@ -148,37 +148,36 @@ def detect_cyp_competition(drug_list: list[str]) -> dict:
     driver = connect()
     try:
         competitions = []
-        # Check every ordered pair: A as substrate, B as modulator
-        for inn_a, inn_b in combinations(inns, 2):
-            for substrate, modulator in [(inn_a, inn_b), (inn_b, inn_a)]:
-                result = driver.execute_query(
-                    """
-                    MATCH (sub:Molecule {inn: $substrate})-[:SUBSTRATE_OF]->(cyp:CYPEnzyme)
-                          <-[r:INHIBITS|INDUCES]-(mod:Molecule {inn: $modulator})
-                    RETURN sub.inn    AS substrate,
-                           mod.inn    AS modulator,
-                           cyp.name   AS enzyme,
-                           type(r)    AS effect,
-                           r.strength AS strength
-                    """,
-                    substrate=substrate, modulator=modulator,
-                )
-                for rec in result.records:
-                    effect = rec["effect"]
-                    strength = rec["strength"] or "unknown"
-                    risk = (
-                        f"{substrate} accumulation risk"
-                        if effect == "INHIBITS"
-                        else f"{substrate} subtherapeutic risk (accelerated clearance)"
-                    )
-                    competitions.append({
-                        "substrate":  rec["substrate"],
-                        "modulator":  rec["modulator"],
-                        "enzyme":     rec["enzyme"],
-                        "effect":     effect,
-                        "strength":   strength,
-                        "risk":       risk,
-                    })
+        result = driver.execute_query(
+            """
+            MATCH (sub:Molecule)-[:SUBSTRATE_OF]->(cyp:CYPEnzyme)<-[r:INHIBITS|INDUCES]-(mod:Molecule)
+            WHERE sub.inn IN $inns AND mod.inn IN $inns AND sub.inn <> mod.inn
+            RETURN sub.inn    AS substrate,
+                   mod.inn    AS modulator,
+                   cyp.name   AS enzyme,
+                   type(r)    AS effect,
+                   r.strength AS strength
+            """,
+            inns=inns,
+        )
+        for rec in result.records:
+            effect = rec["effect"]
+            strength = rec["strength"] or "unknown"
+            substrate = rec["substrate"]
+            modulator = rec["modulator"]
+            risk = (
+                f"{substrate} accumulation risk"
+                if effect == "INHIBITS"
+                else f"{substrate} subtherapeutic risk (accelerated clearance)"
+            )
+            competitions.append({
+                "substrate":  substrate,
+                "modulator":  modulator,
+                "enzyme":     rec["enzyme"],
+                "effect":     effect,
+                "strength":   strength,
+                "risk":       risk,
+            })
 
         # Deduplicate (same competition may appear from both loop iterations)
         seen = set()
