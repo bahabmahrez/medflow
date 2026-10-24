@@ -153,6 +153,8 @@ def run():
             return 0
 
         for table in (
+            "alert_reviews",
+            "prescription_scans",
             "refill_records",
             "prescription_history",
             "allergies",
@@ -160,7 +162,12 @@ def run():
             "active_medications",
             "conditions",
         ):
-            cur.execute(f"DELETE FROM {table} WHERE patient_id = ANY(%s)", (patient_ids,))
+            cur.execute(
+                "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = %s)",
+                (table,)
+            )
+            if cur.fetchone()[0]:
+                cur.execute(f"DELETE FROM {table} WHERE patient_id = ANY(%s)", (patient_ids,))
         cur.execute("DELETE FROM patients WHERE id = ANY(%s)", (patient_ids,))
         return len(patient_ids)
 
